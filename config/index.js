@@ -13,7 +13,7 @@ export const config = {
 
   anthropic: {
     apiKey: required('ANTHROPIC_API_KEY'),
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-5',
   },
 
   zapi: {
