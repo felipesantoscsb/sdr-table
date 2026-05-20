@@ -1,6 +1,7 @@
 // src/conversation/store.js
 
 const conversations = new Map();
+const sdrHistory = []; // histórico da conversa consultiva com a Karina
 
 export function getConversation(phone) {
   if (!conversations.has(phone)) {
@@ -8,7 +9,7 @@ export function getConversation(phone) {
       messages: [],
       isActiveLead: false,
       leadData: null,
-      handedOff: false, // true após handoff para a Karina
+      handedOff: false,
     });
   }
   return conversations.get(phone);
@@ -26,6 +27,7 @@ export function activateLead(phone, leadData) {
   const conv = getConversation(phone);
   conv.isActiveLead = true;
   conv.leadData = leadData;
+  conv.handedOff = false; // reseta handoff se lead reentrar
 }
 
 export function isActiveLead(phone) {
@@ -46,4 +48,17 @@ export function isHandedOff(phone) {
 
 export function setHandedOff(phone) {
   getConversation(phone).handedOff = true;
+}
+
+// Histórico consultivo da Karina
+export function getSdrHistory() {
+  return [...sdrHistory];
+}
+
+export function addSdrMessage(role, content) {
+  sdrHistory.push({ role, content });
+  // Limita a 30 mensagens para não explodir o contexto
+  if (sdrHistory.length > 30) {
+    sdrHistory.splice(0, sdrHistory.length - 30);
+  }
 }

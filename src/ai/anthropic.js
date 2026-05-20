@@ -14,6 +14,11 @@ const SYSTEM_PROMPT = readFileSync(
   'utf-8'
 );
 
+const CONSULTIVO_PROMPT = readFileSync(
+  join(__dirname, '../../config/prompts/consultivo.txt'),
+  'utf-8'
+);
+
 export async function generateFirstContact(leadData) {
   const {
     nome, whatsapp, whats, temperatura, score,
@@ -161,6 +166,23 @@ Responda em texto corrido, máximo 6 linhas. Inclua:
     model: 'claude-sonnet-4-5',
     max_tokens: 400,
     messages: [{ role: 'user', content: prompt }],
+  });
+
+  return response.content[0].text;
+}
+
+export async function generateConsultivo(pergunta, historico = []) {
+  // Mantém histórico da conversa consultiva com a Karina
+  const messages = [
+    ...historico,
+    { role: 'user', content: pergunta },
+  ];
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 1000,
+    system: CONSULTIVO_PROMPT,
+    messages,
   });
 
   return response.content[0].text;

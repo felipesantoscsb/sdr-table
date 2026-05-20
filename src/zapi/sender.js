@@ -22,11 +22,13 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export async function sendMessage(phone, message) {
+export async function sendMessage(phone, message, options = {}) {
   try {
-    const delay = typingDelay(message);
-    console.log(`⏳ Aguardando ${Math.round(delay/1000)}s antes de enviar para ${phone}`);
-    await sleep(delay);
+    if (!options.skipDelay) {
+      const delay = typingDelay(message);
+      console.log(`⏳ Aguardando ${Math.round(delay/1000)}s antes de enviar para ${phone}`);
+      await sleep(delay);
+    }
 
     const response = await zapiClient.post('/send-text', { phone, message });
     console.log(`✅ Mensagem enviada para ${phone}`);
@@ -59,7 +61,7 @@ export async function notifySDR(leadData, sdrBriefing) {
     `🔗 https://wa.me/${cleanPhone}`,
   ].filter(l => l !== null);
 
-  await sendMessage(config.sdr.phone, lines.join('\n'));
+  await sendMessage(config.sdr.phone, lines.join('\n'), { skipDelay: true });
 }
 
 export async function notifySDRHandoff(leadData, turno, handoffBriefing) {
@@ -79,7 +81,7 @@ export async function notifySDRHandoff(leadData, turno, handoffBriefing) {
     `🔗 https://wa.me/${cleanPhone}`,
   ];
 
-  await sendMessage(config.sdr.phone, lines.join('\n'));
+  await sendMessage(config.sdr.phone, lines.join('\n'), { skipDelay: true });
 }
 
 export async function notifySDRRedflag(leadData, motivo) {
@@ -96,5 +98,5 @@ export async function notifySDRRedflag(leadData, motivo) {
     `O agente parou de responder. Assuma a conversa com cuidado.`,
   ];
 
-  await sendMessage(config.sdr.phone, lines.join('\n'));
+  await sendMessage(config.sdr.phone, lines.join('\n'), { skipDelay: true });
 }

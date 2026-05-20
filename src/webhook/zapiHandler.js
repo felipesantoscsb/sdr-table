@@ -1,9 +1,10 @@
 // src/webhook/zapiHandler.js
 
-import { isActiveLead, isHandedOff, setHandedOff, addMessage, getHistory, getLeadData } from '../conversation/store.js';
+import { isActiveLead, isHandedOff, setHandedOff, addMessage, getHistory, getLeadData, getSdrHistory, addSdrMessage } from '../conversation/store.js';
 import { aggregate } from '../conversation/aggregator.js';
-import { generateReply, generateHandoffBriefing } from '../ai/anthropic.js';
+import { generateReply, generateHandoffBriefing, generateConsultivo } from '../ai/anthropic.js';
 import { sendMessage, notifySDRHandoff, notifySDRRedflag } from '../zapi/sender.js';
+import { config } from '../../config/index.js';
 
 export async function handleZapiMessage(req, res) {
   res.status(200).json({ ok: true });
@@ -18,12 +19,19 @@ export async function handleZapiMessage(req, res) {
 
     if (!phone || !messageText) return;
 
-    // Karina respondeu manualmente — handoff automático
+    // Karina respondeu manualmente para uma lead — handoff automático
     if (body.isFromMe) {
       if (isActiveLead(phone) && !isHandedOff(phone)) {
         console.log(`👩 Karina assumiu conversa com ${phone} — handoff automático`);
         setHandedOff(phone);
       }
+      return;
+    }
+
+    // Mensagem da Karina para o agente — modo consultivo
+    if (phone === config.sdr.phone) {
+      console.log(`💬 Consulta da Karina: "${messageText.substring(0, 60)}..."`);
+      await handleSdrConsultivo(messageText);
       return;
     }
 
@@ -42,6 +50,21 @@ export async function handleZapiMessage(req, res) {
 
   } catch (err) {
     console.error('❌ Erro no handler da Zapi:', err.message);
+  }
+}
+
+async function handleSdrConsultivo(pergunta) {
+  try {
+    const historico = getSdrHistory();
+    addSdrMessage('user', pergunta);
+
+    const resposta = await generateConsultivo(pergunta, historico);
+    addSdrMessage('assistant', resposta);
+
+    // Responde direto para a Karina sem delay de digitação
+    await sendMessage(config.sdr.phone, resposta, { skipDelay: true });
+  } catch (err) {
+    console.error('❌ Erro no modo consultivo:', err.message);
   }
 }
 
@@ -64,7 +87,7 @@ async function processAggregatedMessages(phone, combinedMessage) {
       return;
     }
 
-    // Handoff — envia mensagem de espera, gera briefing com histórico e notifica Karina
+    // Handoff
     if (result.handoff) {
       console.log(`🟢 Handoff ativado para ${phone}`);
       addMessage(phone, 'assistant', result.leadMessage);
