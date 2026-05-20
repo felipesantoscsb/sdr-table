@@ -1,14 +1,8 @@
 // src/zapi/sender.js
-//
-// DECISÃO TÉCNICA: Por que abstrair a Zapi num módulo separado?
-// → Se um dia trocar Zapi por outra API de WhatsApp (Evolution, WPPConnect...),
-//   você muda APENAS este arquivo. O resto do sistema não sabe qual API usa.
 
 import axios from 'axios';
 import { config } from '../../config/index.js';
 
-// Cliente axios pré-configurado com headers da Zapi
-// Motivo: não precisar repetir os headers em cada chamada
 const zapiClient = axios.create({
   baseURL: config.zapi.baseUrl(),
   headers: {
@@ -18,18 +12,27 @@ const zapiClient = axios.create({
 });
 
 /**
- * Envia mensagem de texto pelo WhatsApp via Zapi.
- *
- * @param {string} phone - Número no formato 5511999999999 (sem + ou espaços)
- * @param {string} message - Texto a enviar
+ * Calcula delay em ms baseado no tamanho da mensagem.
+ * Simula tempo de digitação humana.
  */
+function typingDelay(message) {
+  const len = message.length;
+  if (len <= 80)  return Math.floor(Math.random() * (12000 - 8000) + 8000);   // 8-12s
+  if (len <= 200) return Math.floor(Math.random() * (25000 - 15000) + 15000); // 15-25s
+  return Math.floor(Math.random() * (45000 - 30000) + 30000);                 // 30-45s
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export async function sendMessage(phone, message) {
   try {
-    const response = await zapiClient.post('/send-text', {
-      phone,
-      message,
-    });
+    const delay = typingDelay(message);
+    console.log(`⏳ Aguardando ${Math.round(delay/1000)}s antes de enviar para ${phone}`);
+    await sleep(delay);
 
+    const response = await zapiClient.post('/send-text', { phone, message });
     console.log(`✅ Mensagem enviada para ${phone}`);
     return response.data;
   } catch (error) {
@@ -39,22 +42,20 @@ export async function sendMessage(phone, message) {
   }
 }
 
-/**
- * Envia notificação para a SDR com link wa.me do lead + briefing.
- *
- * @param {Object} leadData - Dados do lead
- * @param {string} sdrBriefing - Análise gerada pela IA
- * @param {string} suggestedSecondMessage - Sugestão de 2ª mensagem (opcional)
- */
 export async function notifySDR(leadData, sdrBriefing, suggestedSecondMessage = '') {
-  // Limpa o número para o link wa.me (remove tudo que não for dígito)
-  const cleanPhone = leadData.whatsapp.replace(/\D/g, '');
+  const cleanPhone = (leadData.whatsapp || leadData.whats || '').replace(/\D/g, '');
+  const score = leadData.qualificacao?.score ?? leadData.score ?? '?';
+  const tier = (leadData.qualificacao?.tier || leadData.temperatura || '').toUpperCase();
+  const monitorar = leadData._monitorarDePerto;
+  const avisoNatalia = leadData._avisoNatalia;
 
   const lines = [
     `🎯 *NOVO LEAD ATIVADO*`,
     ``,
+    avisoNatalia ? `⚠️ *LEAD DA NATÁLIA KELM*\nPré-consulta deve ser agendada diretamente com a Natália.\n` : '',
+    monitorar ? `🔴 *MONITORAR DE PERTO — lead quente*\n` : '',
     `👤 *${leadData.nome}*`,
-    `🌡️ Temperatura: ${leadData.temperatura} | Score: ${leadData.score}/100`,
+    `🌡️ Temperatura: ${tier} | Score: ${score}/10`,
     ``,
     `📊 *Briefing da IA:*`,
     sdrBriefing,
@@ -63,19 +64,16 @@ export async function notifySDR(leadData, sdrBriefing, suggestedSecondMessage = 
     suggestedSecondMessage || '(não gerada)',
     ``,
     `🔗 Abrir conversa: https://wa.me/${cleanPhone}`,
-  ];
+  ].filter(l => l !== '');
 
   await sendMessage(config.sdr.phone, lines.join('\n'));
 }
 
-/**
- * Notifica a SDR sobre uma resposta de lead em conversa ativa.
- */
 export async function notifySDRReply(leadData, leadMessage, sdrBriefing) {
-  const cleanPhone = leadData.whatsapp.replace(/\D/g, '');
+  const cleanPhone = (leadData.whatsapp || leadData.whats || '').replace(/\D/g, '');
 
   const lines = [
-    `💬 *RESPOSTA DE LEAD*`,
+    `💬 *ATUALIZAÇÃO DE CONVERSA*`,
     ``,
     `👤 *${leadData.nome}*`,
     `🔗 https://wa.me/${cleanPhone}`,
@@ -85,6 +83,40 @@ export async function notifySDRReply(leadData, leadMessage, sdrBriefing) {
     ``,
     `📊 *Situação atual:*`,
     sdrBriefing,
+  ];
+
+  await sendMessage(config.sdr.phone, lines.join('\n'));
+}
+
+export async function notifySDRHandoff(leadData, turno) {
+  const cleanPhone = (leadData.whatsapp || leadData.whats || '').replace(/\D/g, '');
+
+  const lines = [
+    `🟢 *HANDOFF — LEAD PRONTA PARA AGENDAR*`,
+    ``,
+    `👤 *${leadData.nome}*`,
+    `🔗 https://wa.me/${cleanPhone}`,
+    ``,
+    `🕐 Preferência de turno: *${turno}*`,
+    ``,
+    `A lead sinalizou interesse em agendar. Assuma a conversa e confirme o horário.`,
+  ];
+
+  await sendMessage(config.sdr.phone, lines.join('\n'));
+}
+
+export async function notifySDRRedflag(leadData, motivo) {
+  const cleanPhone = (leadData.whatsapp || leadData.whats || '').replace(/\D/g, '');
+
+  const lines = [
+    `🚨 *RED FLAG — ATENÇÃO IMEDIATA*`,
+    ``,
+    `👤 *${leadData.nome}*`,
+    `🔗 https://wa.me/${cleanPhone}`,
+    ``,
+    `⚠️ *Motivo:* ${motivo}`,
+    ``,
+    `O agente parou de responder. Assuma a conversa com cuidado.`,
   ];
 
   await sendMessage(config.sdr.phone, lines.join('\n'));
