@@ -45,7 +45,7 @@ Maior dificuldade: ${maiorDificuldade || 'não informado'}
 Source: ${source || 'não informado'}
 Data: ${new Date().toISOString()}
 
-Entregue:
+Entregue
 1. Tier confirmado com justificativa
 2. Primeira mensagem pronta para WhatsApp
 3. Orientação estratégica completa
