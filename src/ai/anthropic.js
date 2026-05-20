@@ -40,30 +40,11 @@ Maior dificuldade: ${maiorDificuldade || dificuldade || 'não informado'}
 Source: ${source || 'não informado'}
 Data: ${new Date().toISOString()}
 
-Responda APENAS em JSON válido com as chaves:
-{
-  "tier": "hot|warm|cold",
-  "tierJustificativa": "...",
-  "leadMessage": "mensagem para enviar à lead",
-  "sdrBriefing": "briefing completo para a SDR",
-  "orientacao": {
-    "objetivo": "...",
-    "tom": "...",
-    "gancho": "...",
-    "proximoPasso": "...",
-    "monitorarDePerto": true|false
-  },
-  "followUp24h": "...",
-  "followUp48h": "...",
-  "avisoNatalia": true|false,
-  "handoff": false,
-  "redflag": false,
-  "redflagMotivo": ""
-}`;
+Responda APENAS em JSON válido. Sem texto antes ou depois. Sem blocos de código.`;
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5',
-    max_tokens: 1500,
+    max_tokens: 2500,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userPrompt }],
   });
@@ -78,7 +59,7 @@ Responda APENAS em JSON válido com as chaves:
     return {
       tier: 'warm',
       tierJustificativa: 'Erro ao processar.',
-      leadMessage: `Oi ${nome}! Aqui é a Karina, da equipe da Evelyn Liu. Vi as respostas que você preencheu e queria te falar pessoalmente sobre o que você compartilhou. Posso te fazer uma pergunta?`,
+      leadMessage: `Oi ${nome}! Aqui é a Karina, da equipe da Evelyn Liu. Vi as respostas que você preencheu recentemente e queria conversar sobre o que você compartilhou. Posso te fazer uma pergunta?`,
       sdrBriefing: 'Erro ao gerar briefing. Avalie manualmente.',
       orientacao: { objetivo: '', tom: 'Acolhedor', gancho: '', proximoPasso: '', monitorarDePerto: false },
       followUp24h: `Oi ${nome}, passando para saber se recebeu minha mensagem.`,
@@ -111,7 +92,7 @@ Source: ${leadData.source || 'não informado'}
 
 A lead acabou de responder. Gere a próxima mensagem.
 
-Responda APENAS em JSON:
+Responda APENAS em JSON válido. Sem texto antes ou depois. Sem blocos de código:
 {
   "leadMessage": "próxima mensagem para enviar à lead",
   "sdrBriefing": "situação atual em 2-3 linhas",
@@ -121,12 +102,12 @@ Responda APENAS em JSON:
   "redflagMotivo": ""
 }
 
-Se a lead sinalizou interesse em agendar e você já perguntou o turno e ela respondeu, defina handoff: true e handoffTurno com o turno que ela informou.
+Se a lead sinalizou interesse em agendar e você já perguntou o turno e ela respondeu, defina handoff: true e handoffTurno com o turno informado.
 Se detectar crise emocional grave ou teor suicida, defina redflag: true.`;
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5',
-    max_tokens: 800,
+    max_tokens: 1000,
     system: SYSTEM_PROMPT,
     messages: [
       ...messages,
@@ -149,4 +130,38 @@ Se detectar crise emocional grave ou teor suicida, defina redflag: true.`;
       redflagMotivo: '',
     };
   }
+}
+
+export async function generateHandoffBriefing(leadData, history, turno) {
+  const scoreVal = leadData.qualificacao?.score ?? leadData.score ?? '?';
+  const tierVal = leadData.qualificacao?.tier || leadData.temperatura || '?';
+
+  const conversaTexto = history
+    .map(m => `${m.role === 'user' ? 'Lead' : 'Agente'}: ${m.content}`)
+    .join('\n');
+
+  const prompt = `
+Você é consultor de vendas. Resuma a conversa abaixo para a SDR que vai assumir o agendamento.
+
+DADOS DA LEAD:
+Nome: ${leadData.nome}
+Score: ${scoreVal}/10
+Temperatura: ${tierVal}
+Turno preferido: ${turno}
+
+CONVERSA:
+${conversaTexto}
+
+Responda em texto corrido, máximo 6 linhas. Inclua:
+1. Dores principais que a lead revelou
+2. Nível de interesse percebido
+3. Como abordar o agendamento com ela`;
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 400,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  return response.content[0].text;
 }

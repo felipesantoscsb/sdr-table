@@ -11,15 +11,11 @@ const zapiClient = axios.create({
   },
 });
 
-/**
- * Calcula delay em ms baseado no tamanho da mensagem.
- * Simula tempo de digitação humana.
- */
 function typingDelay(message) {
   const len = message.length;
-  if (len <= 80)  return Math.floor(Math.random() * (12000 - 8000) + 8000);   // 8-12s
-  if (len <= 200) return Math.floor(Math.random() * (25000 - 15000) + 15000); // 15-25s
-  return Math.floor(Math.random() * (45000 - 30000) + 30000);                 // 30-45s
+  if (len <= 80)  return Math.floor(Math.random() * (12000 - 8000) + 8000);
+  if (len <= 200) return Math.floor(Math.random() * (25000 - 15000) + 15000);
+  return Math.floor(Math.random() * (45000 - 30000) + 30000);
 }
 
 function sleep(ms) {
@@ -42,7 +38,7 @@ export async function sendMessage(phone, message) {
   }
 }
 
-export async function notifySDR(leadData, sdrBriefing, suggestedSecondMessage = '') {
+export async function notifySDR(leadData, sdrBriefing) {
   const cleanPhone = (leadData.whatsapp || leadData.whats || '').replace(/\D/g, '');
   const score = leadData.qualificacao?.score ?? leadData.score ?? '?';
   const tier = (leadData.qualificacao?.tier || leadData.temperatura || '').toUpperCase();
@@ -52,54 +48,35 @@ export async function notifySDR(leadData, sdrBriefing, suggestedSecondMessage = 
   const lines = [
     `🎯 *NOVO LEAD ATIVADO*`,
     ``,
-    avisoNatalia ? `⚠️ *LEAD DA NATÁLIA KELM*\nPré-consulta deve ser agendada diretamente com a Natália.\n` : '',
-    monitorar ? `🔴 *MONITORAR DE PERTO — lead quente*\n` : '',
+    avisoNatalia ? `⚠️ *LEAD DA NATÁLIA KELM*\nPré-consulta deve ser agendada diretamente com a Natália.\n` : null,
+    monitorar ? `🔴 *MONITORAR DE PERTO*\n` : null,
     `👤 *${leadData.nome}*`,
-    `🌡️ Temperatura: ${tier} | Score: ${score}/10`,
+    `🌡️ ${tier} | Score: ${score}/10`,
     ``,
-    `📊 *Briefing da IA:*`,
+    `📊 *Briefing:*`,
     sdrBriefing,
     ``,
-    `💬 *Sugestão de 2ª mensagem:*`,
-    suggestedSecondMessage || '(não gerada)',
-    ``,
-    `🔗 Abrir conversa: https://wa.me/${cleanPhone}`,
-  ].filter(l => l !== '');
+    `🔗 https://wa.me/${cleanPhone}`,
+  ].filter(l => l !== null);
 
   await sendMessage(config.sdr.phone, lines.join('\n'));
 }
 
-export async function notifySDRReply(leadData, leadMessage, sdrBriefing) {
+export async function notifySDRHandoff(leadData, turno, handoffBriefing) {
   const cleanPhone = (leadData.whatsapp || leadData.whats || '').replace(/\D/g, '');
+  const score = leadData.qualificacao?.score ?? leadData.score ?? '?';
+  const tier = (leadData.qualificacao?.tier || leadData.temperatura || '').toUpperCase();
 
   const lines = [
-    `💬 *ATUALIZAÇÃO DE CONVERSA*`,
+    `🟢 *HANDOFF — PRONTA PARA AGENDAR*`,
     ``,
-    `👤 *${leadData.nome}*`,
+    `👤 *${leadData.nome}* | ${tier} | Score: ${score}/10`,
+    `🕐 Turno preferido: *${turno}*`,
+    ``,
+    `📋 *Resumo da conversa:*`,
+    handoffBriefing,
+    ``,
     `🔗 https://wa.me/${cleanPhone}`,
-    ``,
-    `🤖 *IA respondeu:*`,
-    leadMessage,
-    ``,
-    `📊 *Situação atual:*`,
-    sdrBriefing,
-  ];
-
-  await sendMessage(config.sdr.phone, lines.join('\n'));
-}
-
-export async function notifySDRHandoff(leadData, turno) {
-  const cleanPhone = (leadData.whatsapp || leadData.whats || '').replace(/\D/g, '');
-
-  const lines = [
-    `🟢 *HANDOFF — LEAD PRONTA PARA AGENDAR*`,
-    ``,
-    `👤 *${leadData.nome}*`,
-    `🔗 https://wa.me/${cleanPhone}`,
-    ``,
-    `🕐 Preferência de turno: *${turno}*`,
-    ``,
-    `A lead sinalizou interesse em agendar. Assuma a conversa e confirme o horário.`,
   ];
 
   await sendMessage(config.sdr.phone, lines.join('\n'));

@@ -2,7 +2,7 @@
 
 import { isActiveLead, isHandedOff, setHandedOff, addMessage, getHistory, getLeadData } from '../conversation/store.js';
 import { aggregate } from '../conversation/aggregator.js';
-import { generateReply } from '../ai/anthropic.js';
+import { generateReply, generateHandoffBriefing } from '../ai/anthropic.js';
 import { sendMessage, notifySDRHandoff, notifySDRRedflag } from '../zapi/sender.js';
 
 export async function handleZapiMessage(req, res) {
@@ -18,7 +18,7 @@ export async function handleZapiMessage(req, res) {
 
     if (!phone || !messageText) return;
 
-    // Se a Karina respondeu manualmente (isFromMe), marca handoff e silencia o agente
+    // Karina respondeu manualmente — handoff automático
     if (body.isFromMe) {
       if (isActiveLead(phone) && !isHandedOff(phone)) {
         console.log(`👩 Karina assumiu conversa com ${phone} — handoff automático`);
@@ -56,7 +56,7 @@ async function processAggregatedMessages(phone, combinedMessage) {
 
     const result = await generateReply(phone, combinedMessage, history, leadData);
 
-    // Red flag — para tudo e notifica Karina imediatamente
+    // Red flag
     if (result.redflag) {
       console.log(`🚨 Red flag detectado para ${phone}: ${result.redflagMotivo}`);
       setHandedOff(phone);
@@ -64,17 +64,24 @@ async function processAggregatedMessages(phone, combinedMessage) {
       return;
     }
 
-    // Handoff — envia mensagem de espera, notifica Karina e para
+    // Handoff — envia mensagem de espera, gera briefing com histórico e notifica Karina
     if (result.handoff) {
       console.log(`🟢 Handoff ativado para ${phone}`);
       addMessage(phone, 'assistant', result.leadMessage);
       await sendMessage(phone, result.leadMessage);
       setHandedOff(phone);
-      await notifySDRHandoff(leadData, result.handoffTurno);
+
+      const handoffBriefing = await generateHandoffBriefing(
+        leadData,
+        getHistory(phone),
+        result.handoffTurno
+      );
+
+      await notifySDRHandoff(leadData, result.handoffTurno, handoffBriefing);
       return;
     }
 
-    // Fluxo normal — responde a lead, Karina não é notificada
+    // Fluxo normal
     addMessage(phone, 'assistant', result.leadMessage);
     await sendMessage(phone, result.leadMessage);
 

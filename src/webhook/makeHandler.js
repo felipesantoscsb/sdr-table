@@ -6,20 +6,20 @@ import { sendMessage, notifySDR } from '../zapi/sender.js';
 
 function normalizeLead(body) {
   return {
-    nome:             body['Nome']             || body['nome']             || 'Lead',
-    whatsapp:         body['WhatsApp']         || body['whatsapp']         || body['Whatsapp'] || body['whats'] || '',
-    whats:            body['WhatsApp']         || body['whatsapp']         || body['Whatsapp'] || body['whats'] || '',
-    temperatura:      body['Temperatura']      || body['temperatura']      || body['qualificacao']?.tier || 'desconhecida',
-    score:            body['Score']            || body['score']            || body['qualificacao']?.score || '0',
-    qualificacao:     body['qualificacao']     || null,
-    oqueMaisPesa:     body['O que mais pesa']  || body['oqueMaisPesa']     || body['dores'] || '',
-    dores:            body['dores']            || body['O que mais pesa']  || '',
-    historico:        body['Histórico']        || body['historico']        || body['Historico'] || '',
-    saude:            body['Saúde']            || body['saude']            || body['Saude'] || '',
-    comprometimento:  body['Comprometimento']  || body['comprometimento']  || '',
-    maiorDificuldade: body['Maior dificuldade']|| body['maiorDificuldade'] || body['dificuldade'] || '',
-    dificuldade:      body['dificuldade']      || body['Maior dificuldade']|| '',
-    source:           body['source']           || body['Source']           || '',
+    nome:             body['Nome']              || body['nome']             || 'Lead',
+    whatsapp:         body['WhatsApp']          || body['whatsapp']         || body['Whatsapp'] || body['whats'] || '',
+    whats:            body['WhatsApp']          || body['whatsapp']         || body['Whatsapp'] || body['whats'] || '',
+    temperatura:      body['Temperatura']       || body['temperatura']      || body['qualificacao']?.tier || 'desconhecida',
+    score:            body['Score']             || body['score']            || body['qualificacao']?.score || '0',
+    qualificacao:     body['qualificacao']      || null,
+    oqueMaisPesa:     body['O que mais pesa']   || body['oqueMaisPesa']     || body['dores'] || '',
+    dores:            body['dores']             || body['O que mais pesa']  || '',
+    historico:        body['Histórico']         || body['historico']        || body['Historico'] || '',
+    saude:            body['Saúde']             || body['saude']            || body['Saude'] || '',
+    comprometimento:  body['Comprometimento']   || body['comprometimento']  || '',
+    maiorDificuldade: body['Maior dificuldade'] || body['maiorDificuldade'] || body['dificuldade'] || '',
+    dificuldade:      body['dificuldade']       || body['Maior dificuldade']|| '',
+    source:           body['source']            || body['Source']           || '',
   };
 }
 
@@ -43,7 +43,6 @@ export async function handleMakeLead(req, res) {
   try {
     const result = await generateFirstContact(leadData);
 
-    // Anota flags no leadData para uso nas notificações
     leadData._monitorarDePerto = result.orientacao?.monitorarDePerto || false;
     leadData._avisoNatalia = result.avisoNatalia || false;
 
@@ -51,7 +50,7 @@ export async function handleMakeLead(req, res) {
     addMessage(phone, 'assistant', result.leadMessage);
 
     await sendMessage(phone, result.leadMessage);
-    await notifySDR(leadData, result.sdrBriefing, result.followUp24h);
+    await notifySDR(leadData, result.sdrBriefing);
 
     console.log(`✅ Lead ${leadData.nome} processado`);
   } catch (err) {
