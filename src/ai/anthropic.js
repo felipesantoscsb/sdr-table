@@ -69,8 +69,8 @@ Responda em JSON com as chaves:
 
 Responda APENAS o JSON, sem texto antes ou depois.`;
 
-  const response = await client.messages.create({
-    model: config.anthropic.model,
+const response = await client.messages.create({
+    model: 'claude-sonnet-4-5',
     max_tokens: 1500,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userPrompt }],
