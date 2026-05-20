@@ -2,8 +2,6 @@
 // Centraliza todas as configurações do sistema.
 // Motivo: se um valor mudar, você muda em UM lugar só.
 
-import 'dotenv/config';
-
 function required(name) {
   const val = process.env[name];
   if (!val) throw new Error(`❌ Variável de ambiente obrigatória não definida: ${name}`);
