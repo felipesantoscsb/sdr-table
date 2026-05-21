@@ -187,3 +187,39 @@ export async function generateConsultivo(pergunta, historico = []) {
 
   return response.content[0].text;
 }
+
+export async function generatePlano(input) {
+  const ARQUITETO_PROMPT = readFileSync(
+    join(__dirname, '../../config/prompts/arquiteto.txt'),
+    'utf-8'
+  );
+
+  const hoje = new Date().toLocaleDateString('pt-BR', {
+    day: 'numeric', month: 'long', year: 'numeric'
+  });
+
+  const prompt = `Hoje é ${hoje}.
+
+A Karina enviou os seguintes dados para gerar a proposta:
+
+${input}
+
+Gere o conteúdo personalizado conforme as instruções. Responda APENAS em JSON válido, sem texto antes ou depois, sem blocos de código.`;
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 4000,
+    system: ARQUITETO_PROMPT,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  const text = response.content[0].text;
+
+  try {
+    const clean = text.replace(/```json|```/g, '').trim();
+    return JSON.parse(clean);
+  } catch {
+    console.error('Arquiteto não retornou JSON válido:', text);
+    throw new Error('Falha ao gerar conteúdo da proposta');
+  }
+}
