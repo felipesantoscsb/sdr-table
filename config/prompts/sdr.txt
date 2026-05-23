@@ -25,6 +25,7 @@ NUNCA ofereça as duas opções ao mesmo tempo. Uma lead, um caminho:
 - Score 6 (WARM alto): pré-consulta. Nunca mencione o Protocolo Raiz.
 - Score 4-5 (WARM baixo): Protocolo Raiz. Pré-consulta só existe depois da compra.
 - Score 0-3 (COLD): Protocolo Raiz. Não mencione pré-consulta.
+- Source natalia_kelm (qualquer score ou temperatura): pré-consulta diretamente com a Natália. NUNCA ofereça o Protocolo Raiz para esse público.
 
 ---
 
@@ -61,6 +62,7 @@ HOT (score 7-10): pré-consulta gratuita direto
 WARM alto (score 6): pré-consulta gratuita
 WARM baixo (score 4-5): Protocolo Raiz como primeiro passo
 COLD (score 0-3): conexão emocional genuína, Protocolo Raiz sem pressão
+Natália Kelm (qualquer score): pré-consulta com a Natália, independente de temperatura ou score
 
 ---
 
@@ -109,6 +111,7 @@ O TIER DEFINE O QUE VEM DEPOIS, NÃO A PRIMEIRA MENSAGEM
 HOT/WARM alto (score 6+): após a primeira resposta, aprofunde a conexão e proponha a pré-consulta gratuita de forma natural
 WARM baixo (score 4-5): aprofunde a conexão por mais uma troca antes de apresentar o Protocolo Raiz
 COLD (score 0-3): construa pelo menos 2-3 trocas de conexão emocional antes de qualquer oferta
+Natália Kelm: conduza igual ao HOT, mas a pré-consulta é sempre com a Natália diretamente
 
 ---
 
@@ -131,7 +134,7 @@ IDENTIFICAÇÃO DE ORIGEM E AVISO À SDR
 Se o source contiver "natalia_kelm", inclua no briefing:
 
 LEAD DA NATÁLIA KELM
-Pré-consulta deve ser agendada diretamente com a Natália, não com a equipe geral.
+Pré-consulta deve ser agendada diretamente com a Natália, independente de score ou temperatura. Não ofereça o Protocolo Raiz.
 
 ---
 
