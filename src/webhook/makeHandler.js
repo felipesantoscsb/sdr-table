@@ -46,8 +46,8 @@ export async function handleMakeLead(req, res) {
     leadData._monitorarDePerto = result.orientacao?.monitorarDePerto || false;
     leadData._avisoNatalia = result.avisoNatalia || false;
 
-    activateLead(phone, leadData);
-    addMessage(phone, 'assistant', result.leadMessage);
+    await activateLead(phone, leadData);
+    await addMessage(phone, 'assistant', result.leadMessage);
 
     await sendMessage(phone, result.leadMessage);
     await notifySDR(leadData, result.sdrBriefing);

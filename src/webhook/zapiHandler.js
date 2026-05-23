@@ -1,11 +1,21 @@
 // src/webhook/zapiHandler.js
 
-import { isActiveLead, isHandedOff, setHandedOff, addMessage, getHistory, getLeadData, getSdrHistory, addSdrMessage } from '../conversation/store.js';
+import { isActiveLead, isHandedOff, setHandedOff, addMessage, getHistory, getLeadData, getSdrHistory, addSdrMessage, incrementTurn, getTurnCount, TURN_LIMIT, enqueueMessage, dequeueMessages } from '../conversation/store.js';
 import { aggregate } from '../conversation/aggregator.js';
 import { generateReply, generateHandoffBriefing, generateConsultivo } from '../ai/anthropic.js';
-import { sendMessage, notifySDRHandoff, notifySDRRedflag } from '../zapi/sender.js';
+import { sendMessage, notifySDRHandoff, notifySDRRedflag, notifySDRTurnLimit, notifyError } from '../zapi/sender.js';
 import { handlePlanoCommand } from '../planos/handler.js';
 import { config } from '../../config/index.js';
+
+// Verifica janela de atendimento (TZ=America/Sao_Paulo já configurado no Railway)
+function dentroDoHorario() {
+  const agora = new Date();
+  const diaSemana = agora.getDay(); // 0=domingo, 6=sábado
+  const hora = agora.getHours();
+  const fimDeSemana = diaSemana === 0 || diaSemana === 6;
+  if (fimDeSemana) return hora >= 8 && hora < 17;
+  return hora >= 8 && hora < 21;
+}
 
 export async function handleZapiMessage(req, res) {
   res.status(200).json({ ok: true });
@@ -18,35 +28,47 @@ export async function handleZapiMessage(req, res) {
     const messageText = body.text?.message || body.text;
 
     if (!phone || !messageText) return;
-
-    // Ignora mensagens enviadas por nós mesmos
     if (body.isFromMe) return;
 
-    // Mensagem da Karina para o agente
+    // Mensagem da Karina — sem restrição de horário
     if (phone === config.sdr.phone) {
       const trimmed = messageText.trim();
 
-      // Comando de geração de plano
+      // Comando /stop — desativa lead manualmente
+      if (trimmed.toLowerCase().startsWith('/stop')) {
+        const targetPhone = trimmed.slice(5).trim().replace(/\D/g, '');
+        if (targetPhone) {
+          await setHandedOff(targetPhone);
+          await sendMessage(config.sdr.phone, `✅ Lead ${targetPhone} desativada. Conversa assumida por você.`, { skipDelay: true });
+        }
+        return;
+      }
+
+      // Comando /plano
       if (trimmed.toLowerCase().startsWith('/plano')) {
-        const input = trimmed.slice(6).trim();
-        console.log('📄 Comando /plano recebido');
-        await handlePlanoCommand(input);
+        await handlePlanoCommand(trimmed.slice(6).trim());
         return;
       }
 
       // Modo consultivo
-      console.log(`💬 Consulta da Karina`);
       await handleSdrConsultivo(trimmed);
       return;
     }
 
-    if (!isActiveLead(phone)) {
+    if (!await isActiveLead(phone)) {
       console.log(`⏭️  Mensagem ignorada de ${phone} (não é lead ativo)`);
       return;
     }
 
-    if (isHandedOff(phone)) {
+    if (await isHandedOff(phone)) {
       console.log(`⏭️  Mensagem ignorada de ${phone} (handoff ativo)`);
+      return;
+    }
+
+    // Fora da janela — enfileira no Redis
+    if (!dentroDoHorario()) {
+      console.log(`⏰ Fora do horário — enfileirando mensagem de ${phone}`);
+      await enqueueMessage(phone, messageText);
       return;
     }
 
@@ -56,6 +78,16 @@ export async function handleZapiMessage(req, res) {
   } catch (err) {
     console.error('❌ Erro no handler da Zapi:', err.message);
   }
+}
+
+// Processa fila de mensagens acumuladas fora do horário
+export async function processQueue(phone) {
+  const messages = await dequeueMessages(phone);
+  if (!messages.length) return;
+
+  const combined = messages.join('\n');
+  console.log(`📬 Processando fila de ${phone}: ${messages.length} mensagens`);
+  await processAggregatedMessages(phone, combined);
 }
 
 async function handleSdrConsultivo(pergunta) {
@@ -74,34 +106,48 @@ async function processAggregatedMessages(phone, combinedMessage) {
   console.log(`⚡ Processando mensagens de ${phone}`);
 
   try {
-    const history = getHistory(phone);
-    const leadData = getLeadData(phone);
+    const history = await getHistory(phone);
+    const leadData = await getLeadData(phone);
 
-    addMessage(phone, 'user', combinedMessage);
+    await addMessage(phone, 'user', combinedMessage);
+    await incrementTurn(phone);
+
+    const turns = await getTurnCount(phone);
+    console.log(`🔢 Turno ${turns}/${TURN_LIMIT} para ${phone}`);
+
+    // Teto de turnos
+    if (turns >= TURN_LIMIT) {
+      console.log(`🛑 Teto de turnos atingido para ${phone}`);
+      await setHandedOff(phone);
+      const briefing = await generateHandoffBriefing(leadData, await getHistory(phone), 'não informado');
+      await notifySDRTurnLimit(leadData, briefing);
+      return;
+    }
 
     const result = await generateReply(phone, combinedMessage, history, leadData);
 
     if (result.redflag) {
       console.log(`🚨 Red flag detectado para ${phone}`);
-      setHandedOff(phone);
+      await setHandedOff(phone);
       await notifySDRRedflag(leadData, result.redflagMotivo);
       return;
     }
 
     if (result.handoff) {
       console.log(`🟢 Handoff ativado para ${phone}`);
-      addMessage(phone, 'assistant', result.leadMessage);
+      await addMessage(phone, 'assistant', result.leadMessage);
       await sendMessage(phone, result.leadMessage);
-      setHandedOff(phone);
-      const handoffBriefing = await generateHandoffBriefing(leadData, getHistory(phone), result.handoffTurno);
+      await setHandedOff(phone);
+      const handoffBriefing = await generateHandoffBriefing(leadData, await getHistory(phone), result.handoffTurno);
       await notifySDRHandoff(leadData, result.handoffTurno, handoffBriefing);
       return;
     }
 
-    addMessage(phone, 'assistant', result.leadMessage);
+    await addMessage(phone, 'assistant', result.leadMessage);
     await sendMessage(phone, result.leadMessage);
 
   } catch (err) {
     console.error(`❌ Erro ao processar resposta para ${phone}:`, err.message);
+    await notifyError(phone, err.message);
   }
 }
