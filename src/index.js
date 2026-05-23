@@ -5,16 +5,20 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { config } from '../config/index.js';
 import { handleMakeLead } from './webhook/makeHandler.js';
-import { handleZapiMessage } from './webhook/zapiHandler.js';
+import { handleZapiMessage, processQueue } from './webhook/zapiHandler.js';
+import { getPhonesWithQueue } from './conversation/store.js';
+import { startFollowUpJob } from './followup.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 app.use(express.json());
 
-// Serve fotos e planos gerados estaticamente
+// Fotos da equipe
 app.use('/fotos', express.static(join(__dirname, '../public/fotos')));
-app.use('/planos', express.static(join(__dirname, '../public/planos')));
+
+// Propostas servidas na raiz do domínio
+app.use('/', express.static(join(__dirname, '../public/planos')));
 
 // Webhooks
 app.post('/webhook/lead', handleMakeLead);
@@ -33,7 +37,23 @@ Endpoints:
   POST /webhook/lead  → Recebe leads do Make
   POST /webhook/zapi  → Recebe mensagens da Zapi
   GET  /health        → Status do servidor
-  GET  /planos/:file  → Propostas geradas
+  GET  /:file         → Propostas geradas
   GET  /fotos/:file   → Fotos da equipe
   `);
+
+  startFollowUpJob();
+
+  setInterval(async () => {
+    const hora = new Date().getHours();
+    const dia = new Date().getDay();
+    const fimDeSemana = dia === 0 || dia === 6;
+    const abriu = fimDeSemana ? hora === 8 : hora === 8;
+
+    if (abriu) {
+      const phones = await getPhonesWithQueue();
+      for (const phone of phones) {
+        await processQueue(phone);
+      }
+    }
+  }, 60 * 1000);
 });
