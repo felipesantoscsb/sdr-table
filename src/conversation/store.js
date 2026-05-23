@@ -1,64 +1,153 @@
 // src/conversation/store.js
+// Gerencia histórico de conversas e estado das leads via Redis.
 
-const conversations = new Map();
-const sdrHistory = []; // histórico da conversa consultiva com a Karina
+import { getRedis } from '../redis.js';
 
-export function getConversation(phone) {
-  if (!conversations.has(phone)) {
-    conversations.set(phone, {
-      messages: [],
-      isActiveLead: false,
-      leadData: null,
-      handedOff: false,
-    });
-  }
-  return conversations.get(phone);
+export const TURN_LIMIT = 15;
+
+const PREFIX = {
+  conv: 'conv:',
+  queue: 'queue:',
+  lastSeen: 'lastseen:',
+};
+
+// ─── Helpers Redis ────────────────────────────────────────────────────────────
+
+async function getConv(phone) {
+  const r = getRedis();
+  const raw = await r.get(PREFIX.conv + phone);
+  return raw ? JSON.parse(raw) : {
+    messages: [],
+    isActiveLead: false,
+    leadData: null,
+    handedOff: false,
+    turnCount: 0,
+  };
 }
 
-export function addMessage(phone, role, content) {
-  const conv = getConversation(phone);
+async function saveConv(phone, conv) {
+  const r = getRedis();
+  await r.set(PREFIX.conv + phone, JSON.stringify(conv));
+}
+
+// ─── API pública ──────────────────────────────────────────────────────────────
+
+export async function addMessage(phone, role, content) {
+  const conv = await getConv(phone);
   conv.messages.push({ role, content });
-  if (conv.messages.length > 50) {
-    conv.messages = conv.messages.slice(-50);
-  }
+  if (conv.messages.length > 50) conv.messages = conv.messages.slice(-50);
+  await saveConv(phone, conv);
 }
 
-export function activateLead(phone, leadData) {
-  const conv = getConversation(phone);
+export async function activateLead(phone, leadData) {
+  const conv = await getConv(phone);
   conv.isActiveLead = true;
   conv.leadData = leadData;
-  conv.handedOff = false; // reseta handoff se lead reentrar
+  conv.handedOff = false;
+  conv.turnCount = 0;
+  await saveConv(phone, conv);
+  // Registra timestamp de último contato
+  await getRedis().set(PREFIX.lastSeen + phone, Date.now());
 }
 
-export function isActiveLead(phone) {
-  return getConversation(phone).isActiveLead;
+export async function isActiveLead(phone) {
+  const conv = await getConv(phone);
+  return conv.isActiveLead;
 }
 
-export function getHistory(phone) {
-  return getConversation(phone).messages;
+export async function getHistory(phone) {
+  const conv = await getConv(phone);
+  return conv.messages;
 }
 
-export function getLeadData(phone) {
-  return getConversation(phone).leadData;
+export async function getLeadData(phone) {
+  const conv = await getConv(phone);
+  return conv.leadData;
 }
 
-export function isHandedOff(phone) {
-  return getConversation(phone).handedOff;
+export async function isHandedOff(phone) {
+  const conv = await getConv(phone);
+  return conv.handedOff;
 }
 
-export function setHandedOff(phone) {
-  getConversation(phone).handedOff = true;
+export async function setHandedOff(phone) {
+  const conv = await getConv(phone);
+  conv.handedOff = true;
+  await saveConv(phone, conv);
 }
 
-// Histórico consultivo da Karina
+export async function incrementTurn(phone) {
+  const conv = await getConv(phone);
+  conv.turnCount += 1;
+  await saveConv(phone, conv);
+  // Atualiza último contato
+  await getRedis().set(PREFIX.lastSeen + phone, Date.now());
+}
+
+export async function getTurnCount(phone) {
+  const conv = await getConv(phone);
+  return conv.turnCount;
+}
+
+// ─── Fila de mensagens fora do horário ───────────────────────────────────────
+
+export async function enqueueMessage(phone, message) {
+  const r = getRedis();
+  const key = PREFIX.queue + phone;
+  await r.rpush(key, message);
+  await r.expire(key, 86400); // expira em 24h
+  console.log(`📥 Mensagem enfileirada para ${phone}`);
+}
+
+export async function dequeueMessages(phone) {
+  const r = getRedis();
+  const key = PREFIX.queue + phone;
+  const messages = await r.lrange(key, 0, -1);
+  await r.del(key);
+  return messages;
+}
+
+export async function getPhonesWithQueue() {
+  const r = getRedis();
+  const keys = await r.keys(PREFIX.queue + '*');
+  return keys.map(k => k.replace(PREFIX.queue, ''));
+}
+
+// ─── Follow-up de 3 dias ─────────────────────────────────────────────────────
+
+export async function getInactiveLeads(maxAgeMs) {
+  const r = getRedis();
+  const keys = await r.keys(PREFIX.lastSeen + '*');
+  const now = Date.now();
+  const inactive = [];
+
+  for (const key of keys) {
+    const ts = await r.get(key);
+    if (ts && (now - parseInt(ts)) > maxAgeMs) {
+      const phone = key.replace(PREFIX.lastSeen, '');
+      const conv = await getConv(phone);
+      if (conv.isActiveLead && !conv.handedOff) {
+        inactive.push({ phone, leadData: conv.leadData, lastSeen: parseInt(ts) });
+      }
+    }
+  }
+
+  return inactive;
+}
+
+export async function markFollowUpSent(phone) {
+  await getRedis().set(PREFIX.lastSeen + phone, Date.now());
+}
+
+// ─── Histórico consultivo da Karina (em memória, não precisa persistir) ──────
+
+const sdrHistory = [];
+
 export function getSdrHistory() {
   return [...sdrHistory];
 }
 
 export function addSdrMessage(role, content) {
   sdrHistory.push({ role, content });
-  // Limita a 30 mensagens para não explodir o contexto
-  if (sdrHistory.length > 30) {
-    sdrHistory.splice(0, sdrHistory.length - 30);
-  }
+  if (sdrHistory.length > 30) sdrHistory.splice(0, sdrHistory.length - 30);
 }
