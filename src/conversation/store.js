@@ -1,7 +1,6 @@
 // src/conversation/store.js
-// Gerencia histórico de conversas e estado das leads via Redis.
 
-import { getRedis } from '../redis.js';
+import { safeGet, safeSet, safeDel, safeRpush, safeLrange, safeKeys, safeExpire } from '../redis.js';
 
 export const TURN_LIMIT = 15;
 
@@ -11,11 +10,21 @@ const PREFIX = {
   lastSeen: 'lastseen:',
 };
 
-// ─── Helpers Redis ────────────────────────────────────────────────────────────
+// Normaliza número para formato consistente
+// Garante que números brasileiros com 8 dígitos locais ficam com 9
+export function normalizePhone(phone) {
+  const digits = phone.replace(/\D/g, '');
+  // Número BR com DDD: 55 + 2 dígitos DDD + 8 dígitos = 12 dígitos
+  // Adiciona o 9 se necessário
+  if (digits.startsWith('55') && digits.length === 12) {
+    return digits.slice(0, 4) + '9' + digits.slice(4);
+  }
+  return digits;
+}
 
 async function getConv(phone) {
-  const r = getRedis();
-  const raw = await r.get(PREFIX.conv + phone);
+  const key = PREFIX.conv + normalizePhone(phone);
+  const raw = await safeGet(key);
   return raw ? JSON.parse(raw) : {
     messages: [],
     isActiveLead: false,
@@ -26,11 +35,9 @@ async function getConv(phone) {
 }
 
 async function saveConv(phone, conv) {
-  const r = getRedis();
-  await r.set(PREFIX.conv + phone, JSON.stringify(conv));
+  const key = PREFIX.conv + normalizePhone(phone);
+  await safeSet(key, JSON.stringify(conv));
 }
-
-// ─── API pública ──────────────────────────────────────────────────────────────
 
 export async function addMessage(phone, role, content) {
   const conv = await getConv(phone);
@@ -46,8 +53,7 @@ export async function activateLead(phone, leadData) {
   conv.handedOff = false;
   conv.turnCount = 0;
   await saveConv(phone, conv);
-  // Registra timestamp de último contato
-  await getRedis().set(PREFIX.lastSeen + phone, Date.now());
+  await safeSet(PREFIX.lastSeen + normalizePhone(phone), Date.now());
 }
 
 export async function isActiveLead(phone) {
@@ -80,8 +86,7 @@ export async function incrementTurn(phone) {
   const conv = await getConv(phone);
   conv.turnCount += 1;
   await saveConv(phone, conv);
-  // Atualiza último contato
-  await getRedis().set(PREFIX.lastSeen + phone, Date.now());
+  await safeSet(PREFIX.lastSeen + normalizePhone(phone), Date.now());
 }
 
 export async function getTurnCount(phone) {
@@ -89,40 +94,32 @@ export async function getTurnCount(phone) {
   return conv.turnCount;
 }
 
-// ─── Fila de mensagens fora do horário ───────────────────────────────────────
-
 export async function enqueueMessage(phone, message) {
-  const r = getRedis();
-  const key = PREFIX.queue + phone;
-  await r.rpush(key, message);
-  await r.expire(key, 86400); // expira em 24h
+  const key = PREFIX.queue + normalizePhone(phone);
+  await safeRpush(key, message);
+  await safeExpire(key, 86400);
   console.log(`📥 Mensagem enfileirada para ${phone}`);
 }
 
 export async function dequeueMessages(phone) {
-  const r = getRedis();
-  const key = PREFIX.queue + phone;
-  const messages = await r.lrange(key, 0, -1);
-  await r.del(key);
+  const key = PREFIX.queue + normalizePhone(phone);
+  const messages = await safeLrange(key, 0, -1);
+  await safeDel(key);
   return messages;
 }
 
 export async function getPhonesWithQueue() {
-  const r = getRedis();
-  const keys = await r.keys(PREFIX.queue + '*');
+  const keys = await safeKeys(PREFIX.queue + '*');
   return keys.map(k => k.replace(PREFIX.queue, ''));
 }
 
-// ─── Follow-up de 3 dias ─────────────────────────────────────────────────────
-
 export async function getInactiveLeads(maxAgeMs) {
-  const r = getRedis();
-  const keys = await r.keys(PREFIX.lastSeen + '*');
+  const keys = await safeKeys(PREFIX.lastSeen + '*');
   const now = Date.now();
   const inactive = [];
 
   for (const key of keys) {
-    const ts = await r.get(key);
+    const ts = await safeGet(key);
     if (ts && (now - parseInt(ts)) > maxAgeMs) {
       const phone = key.replace(PREFIX.lastSeen, '');
       const conv = await getConv(phone);
@@ -136,11 +133,10 @@ export async function getInactiveLeads(maxAgeMs) {
 }
 
 export async function markFollowUpSent(phone) {
-  await getRedis().set(PREFIX.lastSeen + phone, Date.now());
+  await safeSet(PREFIX.lastSeen + normalizePhone(phone), Date.now());
 }
 
-// ─── Histórico consultivo da Karina (em memória, não precisa persistir) ──────
-
+// Histórico consultivo da Karina (memória, não precisa persistir)
 const sdrHistory = [];
 
 export function getSdrHistory() {
