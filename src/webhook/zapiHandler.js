@@ -1,16 +1,15 @@
 // src/webhook/zapiHandler.js
 
-import { isActiveLead, isHandedOff, setHandedOff, addMessage, getHistory, getLeadData, getSdrHistory, addSdrMessage, incrementTurn, getTurnCount, TURN_LIMIT, enqueueMessage, dequeueMessages } from '../conversation/store.js';
+import { isActiveLead, isHandedOff, setHandedOff, addMessage, getHistory, getLeadData, getSdrHistory, addSdrMessage, incrementTurn, getTurnCount, TURN_LIMIT, enqueueMessage, dequeueMessages, normalizePhone } from '../conversation/store.js';
 import { aggregate } from '../conversation/aggregator.js';
 import { generateReply, generateHandoffBriefing, generateConsultivo } from '../ai/anthropic.js';
 import { sendMessage, notifySDRHandoff, notifySDRRedflag, notifySDRTurnLimit, notifyError } from '../zapi/sender.js';
 import { handlePlanoCommand } from '../planos/handler.js';
 import { config } from '../../config/index.js';
 
-// Verifica janela de atendimento (TZ=America/Sao_Paulo já configurado no Railway)
 function dentroDoHorario() {
   const agora = new Date();
-  const diaSemana = agora.getDay(); // 0=domingo, 6=sábado
+  const diaSemana = agora.getDay();
   const hora = agora.getHours();
   const fimDeSemana = diaSemana === 0 || diaSemana === 6;
   if (fimDeSemana) return hora >= 8 && hora < 17;
@@ -24,33 +23,27 @@ export async function handleZapiMessage(req, res) {
     const body = req.body;
     if (body.type !== 'ReceivedCallback') return;
 
-    const phone = body.phone?.replace(/\D/g, '');
+    const phone = normalizePhone(body.phone || '');
     const messageText = body.text?.message || body.text;
 
     if (!phone || !messageText) return;
     if (body.isFromMe) return;
 
-    // Mensagem da Karina — sem restrição de horário
-    if (phone === config.sdr.phone) {
+    // Mensagem da Karina
+    if (phone === normalizePhone(config.sdr.phone)) {
       const trimmed = messageText.trim();
-
-      // Comando /stop — desativa lead manualmente
       if (trimmed.toLowerCase().startsWith('/stop')) {
-        const targetPhone = trimmed.slice(5).trim().replace(/\D/g, '');
+        const targetPhone = normalizePhone(trimmed.slice(5).trim());
         if (targetPhone) {
           await setHandedOff(targetPhone);
-          await sendMessage(config.sdr.phone, `✅ Lead ${targetPhone} desativada. Conversa assumida por você.`, { skipDelay: true });
+          await sendMessage(config.sdr.phone, `✅ Lead ${targetPhone} desativada.`, { skipDelay: true });
         }
         return;
       }
-
-      // Comando /plano
       if (trimmed.toLowerCase().startsWith('/plano')) {
         await handlePlanoCommand(trimmed.slice(6).trim());
         return;
       }
-
-      // Modo consultivo
       await handleSdrConsultivo(trimmed);
       return;
     }
@@ -65,7 +58,6 @@ export async function handleZapiMessage(req, res) {
       return;
     }
 
-    // Fora da janela — enfileira no Redis
     if (!dentroDoHorario()) {
       console.log(`⏰ Fora do horário — enfileirando mensagem de ${phone}`);
       await enqueueMessage(phone, messageText);
@@ -80,11 +72,9 @@ export async function handleZapiMessage(req, res) {
   }
 }
 
-// Processa fila de mensagens acumuladas fora do horário
 export async function processQueue(phone) {
   const messages = await dequeueMessages(phone);
   if (!messages.length) return;
-
   const combined = messages.join('\n');
   console.log(`📬 Processando fila de ${phone}: ${messages.length} mensagens`);
   await processAggregatedMessages(phone, combined);
@@ -115,7 +105,6 @@ async function processAggregatedMessages(phone, combinedMessage) {
     const turns = await getTurnCount(phone);
     console.log(`🔢 Turno ${turns}/${TURN_LIMIT} para ${phone}`);
 
-    // Teto de turnos
     if (turns >= TURN_LIMIT) {
       console.log(`🛑 Teto de turnos atingido para ${phone}`);
       await setHandedOff(phone);
