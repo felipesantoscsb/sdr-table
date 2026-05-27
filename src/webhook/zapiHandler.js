@@ -9,8 +9,9 @@ import { config } from '../../config/index.js';
 
 function dentroDoHorario() {
   const agora = new Date();
-  const diaSemana = agora.getDay();
-  const hora = agora.getHours();
+  const brasilia = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const diaSemana = brasilia.getDay();
+  const hora = brasilia.getHours();
   const fimDeSemana = diaSemana === 0 || diaSemana === 6;
   if (fimDeSemana) return hora >= 8 && hora < 17;
   return hora >= 8 && hora < 21;
