@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { config } from '../config/index.js';
 import { handleMakeLead } from './webhook/makeHandler.js';
 import { handleZapiMessage, processQueue } from './webhook/zapiHandler.js';
+import { handleQuizPre } from './webhook/quizPreHandler.js';
 import { getPhonesWithQueue } from './conversation/store.js';
 import { startFollowUpJob } from './followup.js';
 
@@ -14,15 +15,14 @@ const app = express();
 
 app.use(express.json());
 
-// Fotos da equipe
+// Arquivos estáticos
 app.use('/fotos', express.static(join(__dirname, '../public/fotos')));
-
-// Propostas servidas na raiz do domínio
 app.use('/', express.static(join(__dirname, '../public/planos')));
 
 // Webhooks
 app.post('/webhook/lead', handleMakeLead);
 app.post('/webhook/zapi', handleZapiMessage);
+app.post('/webhook/quiz-pre', handleQuizPre);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -34,22 +34,23 @@ app.listen(config.port, () => {
 🚀 SDR WhatsApp rodando na porta ${config.port}
 
 Endpoints:
-  POST /webhook/lead  → Recebe leads do Make
-  POST /webhook/zapi  → Recebe mensagens da Zapi
-  GET  /health        → Status do servidor
-  GET  /:file         → Propostas geradas
-  GET  /fotos/:file   → Fotos da equipe
+  POST /webhook/lead     → Recebe leads do Make (formulário)
+  POST /webhook/zapi     → Recebe mensagens da Zapi
+  POST /webhook/quiz-pre → Armazena dados do quiz (Make)
+  GET  /health           → Status do servidor
+  GET  /:file            → Propostas geradas
+  GET  /fotos/:file      → Fotos da equipe
   `);
 
   startFollowUpJob();
 
+  // Processa fila às 8h
   setInterval(async () => {
-    const hora = new Date().getHours();
-    const dia = new Date().getDay();
-    const fimDeSemana = dia === 0 || dia === 6;
-    const abriu = fimDeSemana ? hora === 8 : hora === 8;
+    const brasilia = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const hora = brasilia.getHours();
+    const minuto = brasilia.getMinutes();
 
-    if (abriu) {
+    if (hora === 8 && minuto === 0) {
       const phones = await getPhonesWithQueue();
       for (const phone of phones) {
         await processQueue(phone);
