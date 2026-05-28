@@ -11,21 +11,16 @@ export function getRedis() {
       enableOfflineQueue: false,
       lazyConnect: true,
       retryStrategy: (times) => {
-        if (times > 3) return null; // para de tentar após 3 tentativas
+        if (times > 3) return null;
         return Math.min(times * 500, 2000);
       },
     });
-
     redis.on('connect', () => console.log('✅ Redis conectado'));
-    redis.on('error', (err) => {
-      // Loga mas não deixa crashar o servidor
-      console.error('❌ Redis erro:', err.message);
-    });
+    redis.on('error', (err) => console.error('❌ Redis erro:', err.message));
   }
   return redis;
 }
 
-// Wrapper seguro — se Redis falhar, retorna null sem crashar
 export async function safeGet(key) {
   try { return await getRedis().get(key); } catch { return null; }
 }
