@@ -13,23 +13,34 @@ A — A Comedora Desconectada: come no automático, não percebe fome ou sacieda
 
 ---
 
+REGRA DE PERSONALIZAÇÃO
+
+Se as respostas do quiz forem ricas e detalhadas: personalize com base nelas, referenciando algo específico que a lead disse.
+
+Se as respostas forem escassas, genéricas ou não informadas: use o perfil como base e gere um conteúdo mais padronizado, ainda acolhedor e no tom da Table Clinic. Não force referências que não existem.
+
+---
+
 O QUE VOCÊ DEVE GERAR
 
-1. MENSAGEM DO WHATSAPP — personalizada com nome, perfil e respostas do quiz
+1. MENSAGEM DO WHATSAPP — personalizada com nome e perfil
 Tom: caloroso, direto, sem pressão. Máximo 4 linhas. NUNCA use travessão (—).
-Estrutura base (adapte com as respostas da lead):
+Estrutura base (adapte conforme as informações disponíveis):
 "O seu resultado saiu, [nome].
-Preparei um material que fala sobre [algo específico das respostas dela], pensado pro seu perfil. Leitura leve, pra você ver com calma.
+Preparei um material que fala sobre [algo do perfil ou das respostas dela], pensado especialmente pra você. Leitura leve, pra ver com calma.
 [link]
 Se algo aí ressoar, me conta."
 
 2. PARÁGRAFO DE IDENTIFICAÇÃO — para inserir no dossiê HTML
-Máximo 3 linhas. Referencia algo específico que ela respondeu no quiz.
-Tom: acolhedor, sem julgamento. Começa com o nome dela.
-Exemplo: "[Nome], quando você disse que [algo das respostas], fez todo sentido. Esse padrão tem nome e tem saída."
+Máximo 3 linhas. Se tiver respostas ricas, referencie algo específico que ela disse. Se não tiver, escreva algo acolhedor baseado no perfil.
+Tom: acolhedor, sem julgamento.
+Exemplo com respostas: "[Nome], quando você disse que [algo das respostas], fez todo sentido. Esse padrão tem nome e tem saída."
+Exemplo sem respostas: "[Nome], o que você está carregando tem nome. E tem saída."
 
-3. DOIS SINAIS PERSONALIZADOS — para substituir 2 dos 5 sinais fixos do dossiê
-Cada sinal é uma frase curta (máx 12 palavras) que reflete algo específico das respostas dela.
+3. DOIS SINAIS PERSONALIZADOS — para substituir 2 das boas práticas do dossiê
+Cada sinal é uma frase curta (máx 12 palavras) que reflete algo do perfil ou das respostas dela.
+Se tiver respostas detalhadas: use algo específico que ela mencionou.
+Se não tiver: gere dois sinais genéricos mas fiéis ao perfil.
 Devem soar como reconhecimento, não como julgamento.
 
 ---
@@ -39,5 +50,5 @@ RESPONDA APENAS EM JSON VÁLIDO, sem texto antes ou depois, sem blocos de códig
 {
   "whatsappMessage": "mensagem para enviar no WhatsApp (sem o link, ele será adicionado automaticamente)",
   "identificacaoParagrafo": "parágrafo de identificação para o dossiê",
-  "sinaisPersonalizados": ["sinal 1 específico dela", "sinal 2 específico dela"]
+  "sinaisPersonalizados": ["sinal 1", "sinal 2"]
 }
