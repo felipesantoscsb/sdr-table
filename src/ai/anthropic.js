@@ -223,3 +223,48 @@ Gere o conteúdo personalizado conforme as instruções. Responda APENAS em JSON
     throw new Error('Falha ao gerar conteúdo da proposta');
   }
 }
+
+export async function generateDossie(leadData) {
+  const DOSSIE_PROMPT = readFileSync(
+    join(__dirname, '../../config/prompts/dossie.txt'),
+    'utf-8'
+  );
+
+  const { nome, perfil, historico, respostas, source } = leadData;
+
+  const respostasTexto = Array.isArray(respostas)
+    ? respostas.map(r => `${r.pergunta}: ${r.resposta}`).join('\n')
+    : respostas;
+
+  const prompt = `
+Lead: ${nome}
+Perfil: ${perfil}
+Histórico de tentativas: ${historico || 'não informado'}
+Source: ${source || 'não informado'}
+
+Respostas do quiz:
+${respostasTexto || 'não informado'}
+
+Gere a personalização para essa lead. Responda APENAS em JSON válido, sem texto antes ou depois, sem blocos de código.`;
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 800,
+    system: DOSSIE_PROMPT,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  const text = response.content[0].text;
+
+  try {
+    const clean = text.replace(/```json|```/g, '').trim();
+    return JSON.parse(clean);
+  } catch {
+    console.error('Erro ao gerar dossiê:', text);
+    return {
+      whatsappMessage: `O seu resultado saiu, ${nome}. Preparei um material pensado pro seu perfil. Leitura leve, pra você ver com calma.\n\nSe algo aí ressoar, me conta.`,
+      identificacaoParagrafo: '',
+      sinaisPersonalizados: [],
+    };
+  }
+}

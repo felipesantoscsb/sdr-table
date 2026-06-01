@@ -7,6 +7,7 @@ import { config } from '../config/index.js';
 import { handleMakeLead } from './webhook/makeHandler.js';
 import { handleZapiMessage, processQueue } from './webhook/zapiHandler.js';
 import { handleQuizPre } from './webhook/quizPreHandler.js';
+import { handleDisparo } from './disparos/handler.js';
 import { getPhonesWithQueue } from './conversation/store.js';
 import { startFollowUpJob } from './followup.js';
 
@@ -18,11 +19,13 @@ app.use(express.json());
 // Arquivos estáticos
 app.use('/fotos', express.static(join(__dirname, '../public/fotos')));
 app.use('/', express.static(join(__dirname, '../public/planos')));
+app.use('/', express.static(join(__dirname, '../public/dossies')));
 
 // Webhooks
 app.post('/webhook/lead', handleMakeLead);
 app.post('/webhook/zapi', handleZapiMessage);
 app.post('/webhook/quiz-pre', handleQuizPre);
+app.post('/webhook/disparo', handleDisparo);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -36,9 +39,10 @@ app.listen(config.port, () => {
 Endpoints:
   POST /webhook/lead     → Recebe leads do Make (formulário)
   POST /webhook/zapi     → Recebe mensagens da Zapi
-  POST /webhook/quiz-pre → Armazena dados do quiz (Make)
+  POST /webhook/quiz-pre → Armazena dados do quiz
+  POST /webhook/disparo  → Dispara dossiê personalizado
   GET  /health           → Status do servidor
-  GET  /:file            → Propostas geradas
+  GET  /:file            → Propostas e dossiês gerados
   GET  /fotos/:file      → Fotos da equipe
   `);
 

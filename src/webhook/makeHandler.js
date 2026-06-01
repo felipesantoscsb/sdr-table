@@ -1,8 +1,18 @@
 // src/webhook/makeHandler.js
 
-import { activateLead, addMessage } from '../conversation/store.js';
+import { activateLead, addMessage, enqueueMessage, normalizePhone } from '../conversation/store.js';
 import { generateFirstContact } from '../ai/anthropic.js';
 import { sendMessage, notifySDR } from '../zapi/sender.js';
+
+function dentroDoHorario() {
+  const agora = new Date();
+  const brasilia = new Date(agora.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const diaSemana = brasilia.getDay();
+  const hora = brasilia.getHours();
+  const fimDeSemana = diaSemana === 0 || diaSemana === 6;
+  if (fimDeSemana) return hora >= 8 && hora < 17;
+  return hora >= 8 && hora < 21;
+}
 
 function normalizeLead(body) {
   return {
@@ -31,7 +41,7 @@ export async function handleMakeLead(req, res) {
   }
 
   const leadData = normalizeLead(req.body);
-  const phone = (leadData.whatsapp || leadData.whats).replace(/\D/g, '');
+  const phone = normalizePhone(leadData.whatsapp || leadData.whats);
 
   if (!phone) {
     return res.status(400).json({ error: 'Campo WhatsApp é obrigatório' });
@@ -48,6 +58,14 @@ export async function handleMakeLead(req, res) {
 
     await activateLead(phone, leadData);
     await addMessage(phone, 'assistant', result.leadMessage);
+
+    if (!dentroDoHorario()) {
+      // Fora do horário: notifica Karina mas segura a mensagem para a lead
+      console.log(`⏰ Lead ${leadData.nome} fora do horário — mensagem enfileirada`);
+      await enqueueMessage(phone, `__PRIMEIRA_MENSAGEM__${result.leadMessage}`);
+      await notifySDR(leadData, result.sdrBriefing);
+      return;
+    }
 
     await sendMessage(phone, result.leadMessage);
     await notifySDR(leadData, result.sdrBriefing);

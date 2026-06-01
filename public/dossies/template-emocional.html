@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Seu Plano de Ação · Comedora Emocional · Table Clinic</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,600&family=Jost:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --moss:#3D4A35;--moss-mid:#4E5E42;--moss-pale:#E8EDE4;
+  --cream:#F8F4EE;--warm:#EDE5D8;--terra:#B97040;--terra-dk:#8A4F28;
+  --brown:#2C2018;--muted:#7A6E64;--white:#FFFFFF;--line:#DDD4C4;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--brown);overflow-x:hidden}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");opacity:.35}
+.wrap{max-width:640px;margin:0 auto;padding:0 24px}
+
+/* HERO */
+.hero{background:var(--moss);padding:64px 24px 56px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-80px;right:-80px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.06) 0%,transparent 65%);pointer-events:none}
+.hero::after{content:'';position:absolute;bottom:-50px;left:-50px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(185,112,64,.15) 0%,transparent 65%);pointer-events:none}
+.hero-inner{position:relative;z-index:1}
+.hero-logo{font-family:'Cormorant Garamond',serif;font-size:11px;letter-spacing:.35em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:36px;display:block}
+.hero-tag{display:inline-block;font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--terra);background:rgba(185,112,64,.15);border:1px solid rgba(185,112,64,.3);padding:5px 14px;border-radius:3px;margin-bottom:20px}
+.hero-h1{font-family:'Cormorant Garamond',serif;font-size:clamp(28px,6vw,46px);line-height:1.15;color:var(--white);margin-bottom:16px}
+.hero-h1 em{color:var(--terra);font-style:italic}
+.hero-sub{font-size:15px;line-height:1.75;color:rgba(255,255,255,.6);max-width:440px;margin:0 auto}
+.hero-sub strong{color:rgba(255,255,255,.9)}
+
+/* BOAS-VINDAS */
+.bv{padding:56px 0 0}
+.bv-eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--terra);font-weight:500;margin-bottom:14px;display:block}
+.bv-h2{font-family:'Cormorant Garamond',serif;font-size:clamp(22px,4vw,34px);line-height:1.25;margin-bottom:16px}
+.bv-h2 em{color:var(--moss);font-style:italic}
+.bv-text{font-size:15px;line-height:1.85;color:var(--muted);margin-bottom:12px}
+.bv-text strong{color:var(--brown)}
+
+/* ACESSO */
+.acesso{margin:40px 0}
+.acesso-card{background:var(--moss);border-radius:10px;padding:28px;display:flex;align-items:center;gap:20px}
+.acesso-icon{width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px}
+.acesso-label{font-size:10px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:4px;display:block}
+.acesso-title{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--white);margin-bottom:8px}
+.btn-acesso{display:inline-block;background:var(--terra);color:var(--white);font-family:'Jost',sans-serif;font-size:13px;font-weight:500;letter-spacing:.05em;padding:10px 24px;border-radius:3px;text-decoration:none;transition:background .2s}
+.btn-acesso:hover{background:var(--terra-dk)}
+
+/* DIVISOR */
+.div-line{width:40px;height:1px;background:var(--terra);margin:48px 0;opacity:.6}
+
+/* PERFIL */
+.perfil-block{background:var(--warm);border-radius:10px;padding:28px;border-left:4px solid var(--moss);margin-bottom:40px}
+.perfil-eyebrow{font-size:10px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--moss);margin-bottom:10px;display:block}
+.perfil-h3{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--brown);margin-bottom:10px;line-height:1.3}
+.perfil-h3 em{color:var(--moss);font-style:italic}
+.perfil-text{font-size:14px;line-height:1.8;color:var(--muted)}
+
+/* EXERCÍCIO PRIORITÁRIO */
+.ex-section{margin-bottom:40px}
+.ex-eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--terra);font-weight:500;margin-bottom:14px;display:block}
+.ex-h2{font-family:'Cormorant Garamond',serif;font-size:clamp(20px,3.5vw,30px);line-height:1.25;margin-bottom:24px}
+.ex-h2 em{color:var(--moss);font-style:italic}
+.ex-card{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:24px;position:relative;margin-bottom:14px}
+.ex-num{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:400;color:rgba(185,112,64,.15);position:absolute;top:16px;right:18px;line-height:1}
+.ex-fase{font-size:10px;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--terra);margin-bottom:6px;display:block}
+.ex-title{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--brown);margin-bottom:8px;padding-right:32px}
+.ex-desc{font-size:14px;line-height:1.75;color:var(--muted);margin-bottom:10px}
+.ex-insight{background:var(--cream);border-left:2px solid var(--terra);padding:10px 14px;border-radius:0 6px 6px 0;font-size:13px;font-style:italic;color:var(--brown);line-height:1.55}
+.ex-priority{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:500;color:var(--moss);background:var(--moss-pale);padding:4px 10px;border-radius:3px;margin-top:12px}
+
+/* BOAS PRÁTICAS */
+.bp-section{margin-bottom:40px}
+.bp-eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--terra);font-weight:500;margin-bottom:14px;display:block}
+.bp-h2{font-family:'Cormorant Garamond',serif;font-size:clamp(20px,3.5vw,30px);line-height:1.25;margin-bottom:24px}
+.bp-h2 em{color:var(--moss);font-style:italic}
+.bp-item{display:flex;gap:16px;align-items:flex-start;padding:20px;background:var(--white);border:1px solid var(--line);border-radius:8px;margin-bottom:10px}
+.bp-dot{width:8px;height:8px;border-radius:50%;background:var(--moss);flex-shrink:0;margin-top:6px}
+.bp-content{}
+.bp-t{font-size:15px;font-weight:500;color:var(--brown);margin-bottom:4px}
+.bp-d{font-size:13px;color:var(--muted);line-height:1.65}
+
+/* CTA SESSÃO */
+.sessao-block{background:var(--moss);border-radius:12px;padding:36px;text-align:center;margin-bottom:48px}
+.sessao-eyebrow{font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:12px;display:block}
+.sessao-h2{font-family:'Cormorant Garamond',serif;font-size:clamp(22px,4vw,34px);color:var(--white);line-height:1.2;margin-bottom:12px}
+.sessao-h2 em{color:var(--terra);font-style:italic}
+.sessao-sub{font-size:14px;color:rgba(255,255,255,.6);line-height:1.75;max-width:400px;margin:0 auto 24px}
+.btn-sessao{display:inline-block;background:var(--terra);color:var(--white);font-family:'Jost',sans-serif;font-size:15px;font-weight:500;letter-spacing:.05em;padding:16px 40px;border-radius:3px;text-decoration:none;transition:all .25s}
+.btn-sessao:hover{background:var(--terra-dk);transform:translateY(-2px)}
+.sessao-fine{font-size:12px;color:rgba(255,255,255,.3);margin-top:12px;line-height:1.6}
+
+/* ASSINATURA */
+.assinatura{text-align:center;padding:40px 0 56px}
+.assinatura-quote{font-family:'Cormorant Garamond',serif;font-size:clamp(18px,3vw,24px);font-style:italic;color:var(--brown);line-height:1.55;max-width:440px;margin:0 auto 16px}
+.assinatura-quote em{color:var(--moss)}
+.assinatura-sign{font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;color:var(--terra)}
+
+footer{background:var(--moss);padding:24px;text-align:center}
+.footer-logo{font-family:'Cormorant Garamond',serif;font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:5px}
+.footer-fine{font-size:11px;color:rgba(255,255,255,.25)}
+@media(max-width:480px){.acesso-card{flex-direction:column;text-align:center}}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-inner">
+    <span class="hero-logo">Table Clinic · Protocolo Raiz</span>
+    <span class="hero-tag">Seu Plano de Ação</span>
+    <h1 class="hero-h1">Bem-vinda,<br><em>Comedora Emocional.</em></h1>
+    <p class="hero-sub">Você já sabe qual é o seu padrão. Agora é hora de trabalhar. <strong>Este é o seu mapa para os primeiros dias.</strong></p>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- BOAS-VINDAS -->
+  <div class="bv">
+    <span class="bv-eyebrow">Uma mensagem da equipe</span>
+    <h2 class="bv-h2">Você não está mais<br><em>tentando sozinha.</em></h2>
+    <p class="bv-text">A partir de agora você faz parte da Table Clinic. Isso significa que cada passo que você der dentro do Protocolo Raiz vai ser guiado — com método, com intenção, com alguém que já percorreu esse caminho com centenas de mulheres antes de você.</p>
+    <p class="bv-text"><strong>O Protocolo Raiz não é mais uma coisa para você tentar.</strong> É um processo para você viver. E começa agora, com este plano.</p>
+  </div>
+
+  <!-- ACESSO -->
+  <div class="acesso">
+    <div class="acesso-card">
+      <div class="acesso-icon">▶</div>
+      <div>
+        <span class="acesso-label">Seu acesso</span>
+        <p class="acesso-title">Protocolo Raiz · Área de Membros</p>
+        <a href="https://protocoloraiz.ticto.club" class="btn-acesso" target="_blank">Acessar agora →</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="div-line"></div>
+
+  <!-- PERFIL -->
+  <div class="perfil-block">
+    <span class="perfil-eyebrow">Seu perfil</span>
+    <h3 class="perfil-h3">A Comedora <em>Emocional</em></h3>
+    <p class="perfil-text">Você come para sobreviver emocionalmente ao que está sentindo — não por fome. A comida virou resposta para a ansiedade, o estresse, a solidão e o cansaço. Não foi fraqueza: foi uma proteção que seu sistema nervoso criou. O trabalho agora é construir novas rotas para essas emoções.</p>
+  </div>
+
+  <!-- EXERCÍCIO PRIORITÁRIO -->
+  <div class="ex-section">
+    <span class="ex-eyebrow">Por onde começar</span>
+    <h2 class="ex-h2">O exercício<br><em>prioritário para você</em></h2>
+
+    <div class="ex-card">
+      <span class="ex-num">01</span>
+      <span class="ex-fase">Fase 1 · Reconexão com você mesma</span>
+      <h3 class="ex-title">Máquina do Tempo</h3>
+      <p class="ex-desc">Este é o ponto de partida para a Comedora Emocional. Antes de mudar qualquer comportamento, você precisa se encontrar nas duas versões possíveis do futuro — a que se cuidou e a que não se cuidou. Esse exercício não cobra, não pressiona. Ele coloca você diante da escolha que já está sendo feita agora, mesmo sem perceber.</p>
+      <div class="ex-insight">Faça este exercício antes de qualquer outro. Ele vai abrir o espaço emocional necessário para tudo que vem depois.</div>
+      <span class="ex-priority">✦ Comece por aqui</span>
+    </div>
+
+    <div class="ex-card">
+      <span class="ex-num">02</span>
+      <span class="ex-fase">Fase 3 · Reconexão com a Comida</span>
+      <h3 class="ex-title">Sentimento vs Com Quem Estou Comendo</h3>
+      <p class="ex-desc">Depois da Máquina do Tempo, este é o segundo exercício mais importante para o seu perfil. Você começa a criar um mapa entre o que sente e como come. Sem julgamento, sem restrição — só observação.</p>
+      <div class="ex-insight">A pergunta que vai mudar tudo para você não é "o que comi?" — é "o que eu estava sentindo quando comi?"</div>
+    </div>
+  </div>
+
+  <!-- BOAS PRÁTICAS -->
+  <div class="bp-section">
+    <span class="bp-eyebrow">Primeiros dias</span>
+    <h2 class="bp-h2">Boas práticas para<br><em>a Comedora Emocional</em></h2>
+
+    <div class="bp-item">
+      <div class="bp-dot"></div>
+      <div class="bp-content">
+        <p class="bp-t">Observe antes de agir</p>
+        <p class="bp-d">Quando sentir vontade de comer fora de hora, pause 2 minutos antes de ir à cozinha. Não para se proibir — para perguntar: o que estou sentindo agora? Esse hábito simples começa a criar espaço entre a emoção e o comportamento.</p>
+      </div>
+    </div>
+
+    <div class="bp-item">
+      <div class="bp-dot"></div>
+      <div class="bp-content">
+        <p class="bp-t">Não restrinja o que come agora</p>
+        <p class="bp-d">Restrição alimentar neste momento vai contra o processo. O Protocolo Raiz não é dieta. Não crie regras sobre o que pode ou não pode comer enquanto trabalha os exercícios — isso só alimenta o ciclo que você quer quebrar.</p>
+      </div>
+    </div>
+
+    <div class="bp-item">
+      <div class="bp-dot"></div>
+      <div class="bp-content">
+        <p class="bp-t">Identifique os seus horários de maior vulnerabilidade</p>
+        <p class="bp-d">Para a Comedora Emocional, geralmente é à noite — quando o dia para e as emoções aparecem. Reconhecer esse padrão sem julgamento é o primeiro passo para trabalhar com ele, não contra ele.</p>
+      </div>
+    </div>
+
+    <div class="bp-item">
+      <div class="bp-dot"></div>
+      <div class="bp-content">
+        <p class="bp-t">Não tente sentir menos — tente nomear mais</p>
+        <p class="bp-d">O objetivo não é eliminar as emoções que levam você à comida. É aprender a nomeá-las com precisão. "Estou ansiosa" é diferente de "estou com medo do que vai acontecer amanhã." Quanto mais específica a emoção, mais ela perde poder sobre o comportamento.</p>
+      </div>
+    </div>
+
+    <div class="bp-item">
+      <div class="bp-dot"></div>
+      <div class="bp-content">
+        <p class="bp-t">Vá no seu ritmo — mas vá</p>
+        <p class="bp-d">O Protocolo Raiz não tem prazo. Mas tem progressão. Faça pelo menos um exercício por semana, no dia e horário que funcionar para você. Consistência baixa e contínua é mais poderosa do que intensidade seguida de abandono.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA SESSÃO -->
+  <div class="sessao-block">
+    <span class="sessao-eyebrow">Próximo passo</span>
+    <h2 class="sessao-h2">Agende sua<br><em>Sessão de Direcionamento.</em></h2>
+    <p class="sessao-sub">A sessão individual é onde a equipe da Table Clinic olha especificamente para o seu caso, seu histórico e seus primeiros exercícios — e define os próximos passos com você.</p>
+    <a href="https://tableclinic.com.br/pre-sessao" class="btn-sessao" target="_blank">Agendar minha Sessão →</a>
+    <p class="sessao-fine">Videochamada · Duração aproximada de 45 minutos · Incluso no Protocolo Raiz</p>
+  </div>
+
+  <!-- ASSINATURA -->
+  <div class="assinatura">
+    <p class="assinatura-quote">"O trabalho começa agora. E você já tem tudo que precisa para dar o primeiro passo — <em>inclusive a coragem de ter chegado até aqui.</em>"</p>
+    <p class="assinatura-sign">Com carinho, Evelyn.</p>
+  </div>
+
+</div>
+
+<footer>
+  <p class="footer-logo">Table Clinic</p>
+  <p class="footer-fine">© Table Clinic · Evelyn Liu · Moema, São Paulo · Nutrição Comportamental</p>
+</footer>
+
+</body>
+</html>
