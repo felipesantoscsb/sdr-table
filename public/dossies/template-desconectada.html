@@ -7,28 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
-<script>
-!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
 
-(async function(){
-  function getCookie(n){const v=document.cookie.match('(^|;)\s*'+n+'\s*=\s*([^;]+)');return v?v.pop():undefined;}
-
-  async function sha256(str){
-    const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
-    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-  }
-
-  const phRaw=new URLSearchParams(window.location.search).get('ph')||getCookie('tc_ph')||null;
-  const phHashed=phRaw?await sha256(phRaw):null;
-
-  window._dossiePhone=phRaw;
-  window._dossiePhoneHashed=phHashed;
-
-  fbq('init','989971718548782',phHashed?{ph:phHashed}:{});
-  fbq('trackCustom','DossieView',{content_name:'dossie-desconectada',currency:'BRL',value:97,ph:phHashed});
-  fbq('track','PageView');
-})();
-</script>
 </head>
 <body style="margin:0;padding:0;">
 <style>
@@ -209,7 +188,7 @@
       <span class="tc-cta-count" style="font-size:1.25rem;display:block;margin:0 auto 0.5rem;color:rgba(185,112,64,1)">Você viu 3 exercícios. Ainda faltam 9.</span>
       <p style="font-family:'Jost',sans-serif;font-size:0.8rem;font-weight:300;color:rgba(248,244,238,0.5);margin:0 auto 1.75rem;max-width:320px;line-height:1.55">Todos guiados pela Evelyn em vídeo, dentro do Protocolo Raiz.</p>
       <p style="font-family:'Jost',sans-serif;font-size:0.8rem;font-weight:300;color:rgba(248,244,238,0.45);margin:0 auto 0.75rem;letter-spacing:0.04em">Protocolo Raiz · R$97 · pagamento único · garantia de 7 dias</p>
-      <a href="https://checkout.ticto.app/O9E1D1B1F" onclick="fbq('trackCustom','DossieCTA',{content_name:'dossie-desconectada',currency:'BRL',value:97,ph:window._dossiePhoneHashed})" class="tc-cta-btn">Quero o Protocolo Raiz →</a>
+      <a href="https://checkout.ticto.app/O9E1D1B1F" class="tc-cta-btn">Quero o Protocolo Raiz →</a>
     </div>
 
     <div class="tc-footer">Table · Nutrição Comportamental · Moema, São Paulo</div>
