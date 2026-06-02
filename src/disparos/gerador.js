@@ -15,15 +15,26 @@ function loadTemplate(perfil) {
 export function gerarDossie(perfil, nomeLead, identificacaoParagrafo, sinaisPersonalizados) {
   let html = loadTemplate(perfil);
 
-  // 1. Injeta parágrafo personalizado após o tc-abertura-sub
+  // 1. Injeta o nome da lead antes do título do perfil no hero
+  html = html.replace(
+    /(<div class="tc-hero">[\s\S]*?<span class="tc-perfil-label">)/,
+    `$1`
+  );
+  // Adiciona saudação com o nome acima do tc-hero-title
+  html = html.replace(
+    /<h1 class="tc-hero-title">/,
+    `<p style="font-family:'Jost',sans-serif;font-size:0.85rem;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:0.5rem;">${nomeLead}</p>\n    <h1 class="tc-hero-title">`
+  );
+
+  // 2. Injeta parágrafo personalizado após tc-abertura-sub
   if (identificacaoParagrafo) {
     html = html.replace(
       /(<p class="tc-abertura-sub">[\s\S]*?<\/p>)/,
-      `$1\n    <p style="font-family:'Jost',sans-serif;font-size:0.92rem;font-weight:400;color:#3D4A35;line-height:1.8;max-width:480px;margin:1.25rem auto 0;padding:1rem 1.25rem;background:#EDE5D8;border-radius:8px;font-style:italic;text-align:left;">${identificacaoParagrafo}</p>`
+      `$1\n    <p style="font-family:'Jost',sans-serif;font-size:0.92rem;color:#3D4A35;line-height:1.8;max-width:520px;margin:1.5rem auto 0;padding:1rem 1.25rem;background:#EDE5D8;border-radius:8px;font-style:italic;text-align:left;">${identificacaoParagrafo}</p>`
     );
   }
 
-  // 2. Substitui os dois primeiros sinais pelos personalizados
+  // 3. Substitui os dois primeiros tc-signal-item pelos personalizados
   if (sinaisPersonalizados?.length >= 2) {
     let count = 0;
     html = html.replace(

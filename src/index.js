@@ -16,10 +16,11 @@ const app = express();
 
 app.use(express.json());
 
-// Arquivos estáticos
+// Fotos da equipe
 app.use('/fotos', express.static(join(__dirname, '../public/fotos')));
+
+// Propostas e dossiês servidos na raiz (mesmo domínio jornada.tableclinic.com.br)
 app.use('/', express.static(join(__dirname, '../public/planos')));
-app.use('/', express.static(join(__dirname, '../public/dossies')));
 
 // Webhooks
 app.post('/webhook/lead', handleMakeLead);
@@ -48,12 +49,10 @@ Endpoints:
 
   startFollowUpJob();
 
-  // Processa fila às 8h
   setInterval(async () => {
     const brasilia = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
     const hora = brasilia.getHours();
     const minuto = brasilia.getMinutes();
-
     if (hora === 8 && minuto === 0) {
       const phones = await getPhonesWithQueue();
       for (const phone of phones) {
