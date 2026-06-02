@@ -1,5 +1,4 @@
 // src/disparos/handler.js
-// Recebe webhook de disparo do Make, gera dossiê personalizado e envia via Zapi
 
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
@@ -12,7 +11,7 @@ import { config } from '../../config/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DOSSIES_DIR = join(__dirname, '../../public/dossies');
-const DELAY_MS = 15 * 60 * 1000; // 15 minutos
+const DELAY_MS = 2 * 60 * 1000; // TEMPORÁRIO — trocar para 15 * 60 * 1000 após validar
 
 if (!existsSync(DOSSIES_DIR)) {
   mkdirSync(DOSSIES_DIR, { recursive: true });
@@ -40,10 +39,6 @@ function msAteAbertura() {
   const brasilia = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
   const hora = brasilia.getHours();
   const minuto = brasilia.getMinutes();
-  const segundo = brasilia.getSeconds();
-
-  // Calcula quanto falta para as 8h do próximo dia útil
-  const minutosPassados = hora * 60 + minuto + segundo / 60;
   const minutosAte8h = (24 - hora + 8) * 60 - minuto;
   return minutosAte8h * 60 * 1000;
 }
@@ -57,7 +52,7 @@ export async function handleDisparo(req, res) {
   const body = req.body;
   const nome = body.nome || body.Nome || 'você';
   const phone = normalizePhone(body.whatsapp || body.whats || '');
-  const perfil = body.perfil?.[0]?.toUpperCase() || 'E'; // E, R, S ou A
+  const perfil = (body.perfil || 'E')[0].toUpperCase();
   const historico = Array.isArray(body.historico) ? body.historico.join(', ') : body.historico || '';
   const respostas = body.respostas || [];
   const source = body.source || '';
@@ -69,49 +64,40 @@ export async function handleDisparo(req, res) {
   console.log(`📨 Disparo recebido para ${nome} (${phone}) — perfil ${perfil}`);
   res.status(200).json({ received: true, phone });
 
-  // Calcula delay total: 15min + espera pela janela se necessário
   const agendarDisparo = async () => {
     try {
-      // Gera conteúdo personalizado via IA
-      const personalizado = await generateDossie({
-        nome, perfil, historico, respostas, source
-      });
+      console.log(`🤖 Gerando dossiê para ${nome} (perfil ${perfil})...`);
 
-      // Gera o HTML do dossiê
-      const html = gerarDossie(
-        perfil,
-        nome,
-        personalizado.identificacaoParagrafo,
-        personalizado.sinaisPersonalizados
-      );
+      const personalizado = await generateDossie({ nome, perfil, historico, respostas, source });
+      console.log(`✅ Conteúdo gerado para ${nome}`);
 
-      // Salva o arquivo
+      const html = gerarDossie(perfil, nome, personalizado.identificacaoParagrafo, personalizado.sinaisPersonalizados);
+      console.log(`📄 HTML gerado para ${nome}`);
+
       const slug = `${slugify(nome)}-${Date.now()}`;
       const filename = `${slug}.html`;
       writeFileSync(join(DOSSIES_DIR, filename), html, 'utf-8');
 
       const url = `https://jornada.tableclinic.com.br/${filename}`;
-
-      // Monta mensagem final com o link
       const mensagem = `${personalizado.whatsappMessage}\n${url}`;
 
+      console.log(`📤 Enviando para ${phone}: ${url}`);
       await sendMessage(phone, mensagem);
-      console.log(`✅ Dossiê enviado para ${nome} (${phone}): ${url}`);
+      console.log(`✅ Dossiê enviado para ${nome} (${phone})`);
 
     } catch (err) {
-      console.error(`❌ Erro no disparo para ${phone}:`, err.message);
+      console.error(`❌ Erro no disparo para ${nome} (${phone}):`, err.message);
+      console.error(err.stack);
     }
   };
 
   if (dentroDoHorario()) {
-    // Dentro da janela: aguarda 15 minutos e dispara
-    console.log(`⏳ Disparo agendado para ${phone} em 15 minutos`);
+    console.log(`⏳ Disparo agendado para ${nome} em 15 minutos`);
     setTimeout(agendarDisparo, DELAY_MS);
   } else {
-    // Fora da janela: aguarda até as 8h + 15 minutos
     const msAte8 = msAteAbertura();
     const totalDelay = msAte8 + DELAY_MS;
-    console.log(`⏰ Fora do horário — disparo agendado para ${phone} em ${Math.round(totalDelay / 60000)} minutos`);
+    console.log(`⏰ Fora do horário — disparo para ${nome} em ${Math.round(totalDelay / 60000)} minutos`);
     setTimeout(agendarDisparo, totalDelay);
   }
 }

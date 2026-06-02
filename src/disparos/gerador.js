@@ -12,37 +12,27 @@ function loadTemplate(perfil) {
   return readFileSync(join(__dirname, `../../public/dossies/template-${nome}.html`), 'utf-8');
 }
 
-/**
- * Gera o HTML do plano de ação personalizado.
- * Injeta parágrafo de identificação e dois sinais personalizados.
- */
-export function gerarDossie(perfil, nome, identificacaoParagrafo, sinaisPersonalizados) {
+export function gerarDossie(perfil, nomeLead, identificacaoParagrafo, sinaisPersonalizados) {
   let html = loadTemplate(perfil);
 
-  // Substitui "Bem-vinda," pelo nome da lead
-  html = html.replace(
-    /<h1 class="hero-h1">Bem-vinda,/,
-    `<h1 class="hero-h1">Bem-vinda, <em style="font-size:0.7em;opacity:0.85">${nome}.</em><br style="display:none">`
-  );
-
-  // Injeta parágrafo personalizado após o segundo .bv-text (mensagem da equipe)
+  // 1. Injeta parágrafo personalizado após o tc-abertura-sub
   if (identificacaoParagrafo) {
     html = html.replace(
-      /(<p class="bv-text"><strong[^<]*<\/strong>[^<]*<\/p>)/,
-      `$1\n    <p class="bv-text" style="background:var(--warm);border-left:3px solid var(--terra);padding:14px 18px;border-radius:0 8px 8px 0;font-style:italic;color:var(--brown)">${identificacaoParagrafo}</p>`
+      /(<p class="tc-abertura-sub">[\s\S]*?<\/p>)/,
+      `$1\n    <p style="font-family:'Jost',sans-serif;font-size:0.92rem;font-weight:400;color:#3D4A35;line-height:1.8;max-width:480px;margin:1.25rem auto 0;padding:1rem 1.25rem;background:#EDE5D8;border-radius:8px;font-style:italic;text-align:left;">${identificacaoParagrafo}</p>`
     );
   }
 
-  // Substitui os dois primeiros bp-t (boas práticas) pelos personalizados
+  // 2. Substitui os dois primeiros sinais pelos personalizados
   if (sinaisPersonalizados?.length >= 2) {
     let count = 0;
     html = html.replace(
-      /<p class="bp-t">([^<]+)<\/p>/g,
-      (match, texto) => {
+      /<div class="tc-signal-item"><div class="tc-signal-dot"><\/div><span>([^<]+)<\/span><\/div>/g,
+      (match) => {
         if (count < 2 && sinaisPersonalizados[count]) {
-          const replacement = `<p class="bp-t" style="color:var(--terra)">${sinaisPersonalizados[count]}</p>`;
+          const sinal = sinaisPersonalizados[count];
           count++;
-          return replacement;
+          return `<div class="tc-signal-item"><div class="tc-signal-dot"></div><span>${sinal}</span></div>`;
         }
         return match;
       }

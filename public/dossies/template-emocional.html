@@ -1,239 +1,261 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Seu Plano de Ação · Comedora Emocional · Table Clinic</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,600&family=Jost:wght@300;400;500&display=swap" rel="stylesheet"/>
-<style>
-:root{
-  --moss:#3D4A35;--moss-mid:#4E5E42;--moss-pale:#E8EDE4;
-  --cream:#F8F4EE;--warm:#EDE5D8;--terra:#B97040;--terra-dk:#8A4F28;
-  --brown:#2C2018;--muted:#7A6E64;--white:#FFFFFF;--line:#DDD4C4;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Jost',sans-serif;background:var(--cream);color:var(--brown);overflow-x:hidden}
-body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");opacity:.35}
-.wrap{max-width:640px;margin:0 auto;padding:0 24px}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Comedora Emocional · Table</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<script>
+!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
 
-/* HERO */
-.hero{background:var(--moss);padding:64px 24px 56px;text-align:center;position:relative;overflow:hidden}
-.hero::before{content:'';position:absolute;top:-80px;right:-80px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.06) 0%,transparent 65%);pointer-events:none}
-.hero::after{content:'';position:absolute;bottom:-50px;left:-50px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(185,112,64,.15) 0%,transparent 65%);pointer-events:none}
-.hero-inner{position:relative;z-index:1}
-.hero-logo{font-family:'Cormorant Garamond',serif;font-size:11px;letter-spacing:.35em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:36px;display:block}
-.hero-tag{display:inline-block;font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--terra);background:rgba(185,112,64,.15);border:1px solid rgba(185,112,64,.3);padding:5px 14px;border-radius:3px;margin-bottom:20px}
-.hero-h1{font-family:'Cormorant Garamond',serif;font-size:clamp(28px,6vw,46px);line-height:1.15;color:var(--white);margin-bottom:16px}
-.hero-h1 em{color:var(--terra);font-style:italic}
-.hero-sub{font-size:15px;line-height:1.75;color:rgba(255,255,255,.6);max-width:440px;margin:0 auto}
-.hero-sub strong{color:rgba(255,255,255,.9)}
+(async function(){
+  function getCookie(n){const v=document.cookie.match('(^|;)\\s*'+n+'\\s*=\\s*([^;]+)');return v?v.pop():undefined;}
 
-/* BOAS-VINDAS */
-.bv{padding:56px 0 0}
-.bv-eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--terra);font-weight:500;margin-bottom:14px;display:block}
-.bv-h2{font-family:'Cormorant Garamond',serif;font-size:clamp(22px,4vw,34px);line-height:1.25;margin-bottom:16px}
-.bv-h2 em{color:var(--moss);font-style:italic}
-.bv-text{font-size:15px;line-height:1.85;color:var(--muted);margin-bottom:12px}
-.bv-text strong{color:var(--brown)}
+  async function sha256(str){
+    const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
 
-/* ACESSO */
-.acesso{margin:40px 0}
-.acesso-card{background:var(--moss);border-radius:10px;padding:28px;display:flex;align-items:center;gap:20px}
-.acesso-icon{width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px}
-.acesso-label{font-size:10px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:4px;display:block}
-.acesso-title{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--white);margin-bottom:8px}
-.btn-acesso{display:inline-block;background:var(--terra);color:var(--white);font-family:'Jost',sans-serif;font-size:13px;font-weight:500;letter-spacing:.05em;padding:10px 24px;border-radius:3px;text-decoration:none;transition:background .2s}
-.btn-acesso:hover{background:var(--terra-dk)}
+  const phRaw=new URLSearchParams(window.location.search).get('ph')||getCookie('tc_ph')||null;
+  const phHashed=phRaw?await sha256(phRaw):null;
 
-/* DIVISOR */
-.div-line{width:40px;height:1px;background:var(--terra);margin:48px 0;opacity:.6}
+  window._dossiePhone=phRaw;
+  window._dossiePhoneHashed=phHashed;
 
-/* PERFIL */
-.perfil-block{background:var(--warm);border-radius:10px;padding:28px;border-left:4px solid var(--moss);margin-bottom:40px}
-.perfil-eyebrow{font-size:10px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--moss);margin-bottom:10px;display:block}
-.perfil-h3{font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--brown);margin-bottom:10px;line-height:1.3}
-.perfil-h3 em{color:var(--moss);font-style:italic}
-.perfil-text{font-size:14px;line-height:1.8;color:var(--muted)}
-
-/* EXERCÍCIO PRIORITÁRIO */
-.ex-section{margin-bottom:40px}
-.ex-eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--terra);font-weight:500;margin-bottom:14px;display:block}
-.ex-h2{font-family:'Cormorant Garamond',serif;font-size:clamp(20px,3.5vw,30px);line-height:1.25;margin-bottom:24px}
-.ex-h2 em{color:var(--moss);font-style:italic}
-.ex-card{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:24px;position:relative;margin-bottom:14px}
-.ex-num{font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:400;color:rgba(185,112,64,.15);position:absolute;top:16px;right:18px;line-height:1}
-.ex-fase{font-size:10px;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--terra);margin-bottom:6px;display:block}
-.ex-title{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--brown);margin-bottom:8px;padding-right:32px}
-.ex-desc{font-size:14px;line-height:1.75;color:var(--muted);margin-bottom:10px}
-.ex-insight{background:var(--cream);border-left:2px solid var(--terra);padding:10px 14px;border-radius:0 6px 6px 0;font-size:13px;font-style:italic;color:var(--brown);line-height:1.55}
-.ex-priority{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:500;color:var(--moss);background:var(--moss-pale);padding:4px 10px;border-radius:3px;margin-top:12px}
-
-/* BOAS PRÁTICAS */
-.bp-section{margin-bottom:40px}
-.bp-eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--terra);font-weight:500;margin-bottom:14px;display:block}
-.bp-h2{font-family:'Cormorant Garamond',serif;font-size:clamp(20px,3.5vw,30px);line-height:1.25;margin-bottom:24px}
-.bp-h2 em{color:var(--moss);font-style:italic}
-.bp-item{display:flex;gap:16px;align-items:flex-start;padding:20px;background:var(--white);border:1px solid var(--line);border-radius:8px;margin-bottom:10px}
-.bp-dot{width:8px;height:8px;border-radius:50%;background:var(--moss);flex-shrink:0;margin-top:6px}
-.bp-content{}
-.bp-t{font-size:15px;font-weight:500;color:var(--brown);margin-bottom:4px}
-.bp-d{font-size:13px;color:var(--muted);line-height:1.65}
-
-/* CTA SESSÃO */
-.sessao-block{background:var(--moss);border-radius:12px;padding:36px;text-align:center;margin-bottom:48px}
-.sessao-eyebrow{font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:12px;display:block}
-.sessao-h2{font-family:'Cormorant Garamond',serif;font-size:clamp(22px,4vw,34px);color:var(--white);line-height:1.2;margin-bottom:12px}
-.sessao-h2 em{color:var(--terra);font-style:italic}
-.sessao-sub{font-size:14px;color:rgba(255,255,255,.6);line-height:1.75;max-width:400px;margin:0 auto 24px}
-.btn-sessao{display:inline-block;background:var(--terra);color:var(--white);font-family:'Jost',sans-serif;font-size:15px;font-weight:500;letter-spacing:.05em;padding:16px 40px;border-radius:3px;text-decoration:none;transition:all .25s}
-.btn-sessao:hover{background:var(--terra-dk);transform:translateY(-2px)}
-.sessao-fine{font-size:12px;color:rgba(255,255,255,.3);margin-top:12px;line-height:1.6}
-
-/* ASSINATURA */
-.assinatura{text-align:center;padding:40px 0 56px}
-.assinatura-quote{font-family:'Cormorant Garamond',serif;font-size:clamp(18px,3vw,24px);font-style:italic;color:var(--brown);line-height:1.55;max-width:440px;margin:0 auto 16px}
-.assinatura-quote em{color:var(--moss)}
-.assinatura-sign{font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;color:var(--terra)}
-
-footer{background:var(--moss);padding:24px;text-align:center}
-.footer-logo{font-family:'Cormorant Garamond',serif;font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:5px}
-.footer-fine{font-size:11px;color:rgba(255,255,255,.25)}
-@media(max-width:480px){.acesso-card{flex-direction:column;text-align:center}}
-</style>
+  fbq('init','989971718548782',phHashed?{ph:phHashed}:{});
+  fbq('trackCustom','DossieView',{content_name:'dossie-emocional',currency:'BRL',value:97,ph:phHashed});
+  fbq('track','PageView');
+})();
+</script>
 </head>
-<body>
+<body style="margin:0;padding:0;">
 
-<!-- HERO -->
-<div class="hero">
-  <div class="hero-inner">
-    <span class="hero-logo">Table Clinic · Protocolo Raiz</span>
-    <span class="hero-tag">Seu Plano de Ação</span>
-    <h1 class="hero-h1">Bem-vinda,<br><em>Comedora Emocional.</em></h1>
-    <p class="hero-sub">Você já sabe qual é o seu padrão. Agora é hora de trabalhar. <strong>Este é o seu mapa para os primeiros dias.</strong></p>
+<style>
+  .tc-page{background:#F8F4EE;font-family:'Jost',sans-serif;color:#2a2a2a;padding:0;margin:0}
+
+  /* HERO */
+  .tc-hero{background:#3D4A35;padding:3rem 2rem 2.5rem;text-align:center;position:relative;overflow:hidden}
+  .tc-hero::before{content:'';position:absolute;top:-40px;left:-40px;width:180px;height:180px;border-radius:50%;border:1px solid rgba(185,112,64,0.18)}
+  .tc-hero::after{content:'';position:absolute;bottom:-30px;right:-30px;width:130px;height:130px;border-radius:50%;border:1px solid rgba(185,112,64,0.13)}
+  .tc-perfil-label{font-family:'Jost',sans-serif;font-size:12px;font-weight:400;letter-spacing:0.15em;text-transform:uppercase;color:rgba(248,244,238,0.5);margin-bottom:0.5rem;display:block}
+  .tc-hero-title{font-family:'Cormorant',serif;font-size:2.6rem;font-weight:500;color:#F8F4EE;line-height:1.15;margin:0 0 0.25rem}
+  .tc-hero-title em{color:#B97040;font-style:italic}
+  .tc-hero-sub{font-family:'Cormorant',serif;font-size:1.15rem;font-weight:400;font-style:italic;color:rgba(248,244,238,0.7);margin:1.25rem auto 0;max-width:480px;line-height:1.6}
+  .tc-divider{width:40px;height:1px;background:#B97040;margin:1.5rem auto;opacity:0.7}
+
+  /* ABERTURA EMOCIONAL */
+  .tc-abertura{background:#F8F4EE;padding:2.5rem 2rem 0;max-width:680px;margin:0 auto;text-align:center}
+  .tc-abertura-cena{font-family:'Cormorant',serif;font-size:1.35rem;font-style:italic;color:#3D4A35;line-height:1.7;max-width:520px;margin:0 auto 1.25rem;border-left:3px solid #B97040;text-align:left;padding-left:1.25rem}
+  .tc-abertura-sub{font-family:'Jost',sans-serif;font-size:0.9rem;font-weight:300;color:#7a7a7a;line-height:1.75;max-width:480px;margin:0 auto}
+
+  /* BODY */
+  .tc-body{padding:0 1.5rem 3rem;max-width:680px;margin:0 auto}
+  .tc-section-label{font-family:'Jost',sans-serif;font-size:10.5px;font-weight:500;letter-spacing:0.22em;text-transform:uppercase;color:#B97040;margin:2.5rem 0 1rem;display:block}
+  .tc-headline{font-family:'Cormorant',serif;font-size:1.7rem;font-weight:500;color:#3D4A35;line-height:1.3;margin:0 0 1rem}
+  .tc-headline em{font-style:italic;color:#B97040}
+  .tc-body-text{font-family:'Jost',sans-serif;font-size:0.95rem;font-weight:300;line-height:1.85;color:#3a3a3a;margin:0 0 1rem}
+
+  /* SINAIS */
+  .tc-signals{background:#3D4A35;border-radius:12px;padding:1.5rem 1.75rem;margin:1.75rem 0}
+  .tc-signals-title{font-family:'Cormorant',serif;font-size:1.1rem;font-weight:500;font-style:italic;color:rgba(248,244,238,0.75);margin:0 0 1rem}
+  .tc-signal-item{display:flex;align-items:flex-start;gap:10px;margin-bottom:0.65rem;font-family:'Jost',sans-serif;font-size:0.88rem;font-weight:300;color:#F8F4EE;line-height:1.5}
+  .tc-signal-dot{width:5px;height:5px;border-radius:50%;background:#B97040;flex-shrink:0;margin-top:7px}
+
+  /* EXERCÍCIOS */
+  .tc-exercise-card{background:#fff;border:0.5px solid rgba(61,74,53,0.15);border-radius:12px;padding:1.4rem 1.6rem;margin-bottom:1rem;position:relative}
+  .tc-exercise-num{font-family:'Cormorant',serif;font-size:2.2rem;font-weight:400;color:rgba(185,112,64,0.18);position:absolute;top:0.8rem;right:1.2rem;line-height:1}
+  .tc-exercise-fase{font-family:'Jost',sans-serif;font-size:10px;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;color:#B97040;margin-bottom:0.3rem;display:block}
+  .tc-exercise-title{font-family:'Cormorant',serif;font-size:1.25rem;font-weight:600;color:#3D4A35;margin:0 0 0.5rem;padding-right:2rem}
+  .tc-exercise-desc{font-family:'Jost',sans-serif;font-size:0.875rem;font-weight:300;line-height:1.75;color:#555;margin:0 0 0.75rem}
+  .tc-exercise-insight{background:#F8F4EE;border-left:2px solid #B97040;padding:0.6rem 0.9rem;border-radius:0 6px 6px 0;font-family:'Jost',sans-serif;font-size:0.82rem;font-weight:400;color:#3D4A35;font-style:italic;line-height:1.55}
+  .tc-bifurcacao{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0.75rem 0}
+  .tc-bifurcacao-card{border-radius:8px;padding:0.85rem 1rem;font-family:'Jost',sans-serif;font-size:0.8rem;font-weight:300;line-height:1.55}
+  .tc-bifurcacao-card.cuidou{background:rgba(61,74,53,0.07);border:0.5px solid rgba(61,74,53,0.2)}
+  .tc-bifurcacao-card.nao-cuidou{background:rgba(185,112,64,0.07);border:0.5px solid rgba(185,112,64,0.2)}
+  .tc-bifurcacao-label{font-size:9.5px;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:0.4rem;display:block}
+  .tc-bifurcacao-card.cuidou .tc-bifurcacao-label{color:#3D4A35}
+  .tc-bifurcacao-card.nao-cuidou .tc-bifurcacao-label{color:#B97040}
+  .tc-bifurcacao-card.cuidou p{color:#3D4A35;margin:0}
+  .tc-bifurcacao-card.nao-cuidou p{color:#7a4a20;margin:0}
+
+  /* INSIGHTS */
+  .tc-insight-block{background:#3D4A35;border-radius:12px;padding:1.75rem;margin:2rem 0}
+  .tc-insight-block-title{font-family:'Cormorant',serif;font-size:1.2rem;font-style:italic;color:rgba(248,244,238,0.7);margin:0 0 1.25rem}
+  .tc-insight-item{display:flex;gap:14px;margin-bottom:1.1rem;align-items:flex-start}
+  .tc-insight-icon{flex-shrink:0;width:20px;height:20px;margin-top:1px;opacity:0.9}
+  .tc-insight-text{font-family:'Jost',sans-serif;font-size:0.875rem;font-weight:300;color:#F8F4EE;line-height:1.65}
+  .tc-insight-text strong{font-weight:500;color:#F8F4EE}
+
+  /* PROVA SOCIAL */
+
+  /* PONTE */
+  .tc-ponte{background:#F8F4EE;border:0.5px solid rgba(185,112,64,0.3);border-radius:12px;padding:1.75rem;margin:2rem 0;text-align:center}
+  .tc-ponte-label{font-family:'Jost',sans-serif;font-size:10px;font-weight:500;letter-spacing:0.2em;text-transform:uppercase;color:#B97040;display:block;margin-bottom:0.75rem}
+  .tc-ponte-title{font-family:'Cormorant',serif;font-size:1.45rem;font-weight:500;color:#3D4A35;line-height:1.3;margin:0 0 0.75rem}
+  .tc-ponte-title em{font-style:italic;color:#B97040}
+  .tc-ponte-text{font-family:'Jost',sans-serif;font-size:0.875rem;font-weight:300;line-height:1.75;color:#555;margin:0 0 1rem}
+  .tc-ponte-exercicios{display:flex;flex-direction:column;gap:6px;margin:1rem 0 0;text-align:left}
+  .tc-ponte-ex-item{display:flex;align-items:flex-start;gap:10px;font-family:'Jost',sans-serif;font-size:0.82rem;font-weight:300;color:#555;line-height:1.5;padding:0.5rem 0.75rem;background:#fff;border-radius:6px;border:0.5px solid rgba(61,74,53,0.1)}
+  .tc-ponte-ex-fase{font-size:9px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:#B97040;display:block;margin-bottom:2px}
+  .tc-ponte-ex-nome{font-family:'Cormorant',serif;font-size:1rem;font-weight:500;color:#3D4A35}
+
+  /* CTA */
+  .tc-cta-section{background:#3D4A35;border-radius:14px;padding:2.25rem 2rem;text-align:center;margin-top:0}
+  .tc-cta-label{font-family:'Jost',sans-serif;font-size:11px;font-weight:500;letter-spacing:0.2em;text-transform:uppercase;color:rgba(248,244,238,0.5);margin-bottom:0.75rem;display:block}
+  .tc-cta-title{font-family:'Cormorant',serif;font-size:1.9rem;font-weight:500;color:#F8F4EE;line-height:1.25;margin:0 0 0.75rem}
+  .tc-cta-title em{color:#B97040;font-style:italic}
+  .tc-cta-sub{font-family:'Jost',sans-serif;font-size:0.875rem;font-weight:300;color:rgba(248,244,238,0.75);line-height:1.8;margin:0 auto 1rem;max-width:440px}
+  .tc-entregaveis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 auto 1.25rem;max-width:400px}
+  .tc-entregavel{background:rgba(248,244,238,0.07);border:0.5px solid rgba(248,244,238,0.15);border-radius:8px;padding:0.65rem 0.9rem;display:flex;align-items:center;gap:10px;font-family:'Jost',sans-serif;font-size:0.8rem;font-weight:300;color:rgba(248,244,238,0.85);text-align:left}
+  .tc-entregavel svg{flex-shrink:0;width:16px;height:16px;opacity:0.9}
+  .tc-cta-preco{font-family:'Cormorant',serif;font-size:1.1rem;color:rgba(248,244,238,0.6);margin:0 auto 0.5rem;display:block}
+  .tc-cta-preco strong{color:#F8F4EE;font-size:2rem}
+  .tc-cta-count{font-family:'Cormorant',serif;font-size:1rem;font-style:italic;color:rgba(185,112,64,0.9);margin:0 auto 1.5rem;display:block}
+  .tc-cta-btn{display:inline-block;background:#B97040;color:#F8F4EE;font-family:'Jost',sans-serif;font-size:0.875rem;font-weight:500;letter-spacing:0.08em;padding:0.9rem 2.25rem;border-radius:50px;text-decoration:none;cursor:pointer;border:none;transition:background .2s}
+  .tc-cta-btn:hover{background:#8A4F28}
+
+  /* FOOTER */
+  .tc-footer{text-align:center;padding:2rem 1rem 1.5rem;font-family:'Jost',sans-serif;font-size:0.75rem;font-weight:300;color:rgba(58,58,58,0.45);letter-spacing:0.05em}
+  .tc-line-dec{width:1px;height:48px;background:linear-gradient(to bottom,transparent,#B97040,transparent);margin:0 auto 2rem}
+
+  @media(max-width:600px){
+    .tc-bifurcacao,.tc-entregaveis,
+    .tc-body{padding:0 0.75rem 3rem}
+    .tc-hero{padding:2.5rem 0.75rem 2rem}
+    .tc-abertura{padding:2rem 0.75rem 0}
+    .tc-signals{padding:1.25rem 1rem}
+    .tc-exercise-card{padding:1.2rem 1rem}
+    .tc-insight-block{padding:1.25rem 1rem}
+    .tc-cta-section{padding:1.75rem 1rem}
+    .tc-ponte{padding:1.25rem 1rem}
+  }
+</style>
+
+<div class="tc-page">
+
+  <!-- HERO -->
+  <div class="tc-hero">
+    <span class="tc-perfil-label">Seu perfil · Table</span>
+    <div class="tc-divider"></div>
+    <h1 class="tc-hero-title">A Comedora <em>Emocional</em></h1>
+    <p class="tc-hero-sub">Você não come por fome. Você come para sobreviver emocionalmente ao que está sentindo.</p>
+    <div class="tc-divider" style="margin-top:2rem;"></div>
+  </div>
+
+  <!-- ABERTURA EMOCIONAL — cena de identificação imediata -->
+  <div class="tc-abertura">
+    <div class="tc-line-dec" style="margin-top:2rem;"></div>
+    <p class="tc-abertura-cena">"É noite. O dia finalmente parou. E antes mesmo de perceber, você está na cozinha — não de fome, mas porque aquele aperto no peito precisa ir pra algum lugar."</p>
+    <p class="tc-abertura-sub">Se você se reconheceu nessa cena, o problema nunca foi a comida. Foi o que veio antes dela. E esse dossiê foi preparado para quem chegou até aqui pronta para entender o que está realmente acontecendo.</p>
+  </div>
+
+  <div class="tc-body">
+    <div class="tc-line-dec"></div>
+
+    <!-- QUEM É VOCÊ -->
+    <span class="tc-section-label">Quem é você</span>
+    <h2 class="tc-headline">A comida virou o seu <em>anestésico.</em> Não foi fraqueza. Foi sobrevivência.</h2>
+    <p class="tc-body-text">Desde cedo você aprendeu que a comida consola, acalma e preenche. Ela virou resposta para a ansiedade, o estresse, a solidão e o cansaço. Não é fraqueza: é uma resposta que seu sistema nervoso criou para te proteger. O problema é que essa proteção passou a custar caro no seu corpo e na sua autoestima.</p>
+
+    <!-- SINAIS -->
+    <div class="tc-signals">
+      <p class="tc-signals-title">Você provavelmente se reconhece aqui:</p>
+      <div class="tc-signal-item"><div class="tc-signal-dot"></div><span>Come mais à noite, quando a correria do dia para</span></div>
+      <div class="tc-signal-item"><div class="tc-signal-dot"></div><span>Sente culpa intensa depois de comer fora do planejado</span></div>
+      <div class="tc-signal-item"><div class="tc-signal-dot"></div><span>Já tentou várias dietas: funciona no começo, mas não sustenta</span></div>
+      <div class="tc-signal-item"><div class="tc-signal-dot"></div><span>Sente que a comida é a única coisa que pertence a você no dia</span></div>
+      <div class="tc-signal-item"><div class="tc-signal-dot"></div><span>Come mais quando está ansiosa, triste ou sozinha</span></div>
+    </div>
+
+    <!-- EXERCÍCIOS — um por fase, progressão completa -->
+    <span class="tc-section-label">Exercícios para o seu padrão</span>
+    <h2 class="tc-headline">3 práticas — uma de cada fase —<br>que <em>tocam</em> na raiz do seu padrão</h2>
+    <p class="tc-body-text">O Protocolo Raiz é estruturado em 4 fases. Os exercícios abaixo são uma prévia de três delas — para que você entenda como a jornada é construída, do começo ao fim.</p>
+
+    <!-- Exercício 1 — Fase 1 -->
+    <div class="tc-exercise-card">
+      <span class="tc-exercise-num">01</span>
+      <span class="tc-exercise-fase">Fase 1 · Reconexão com você mesma</span>
+      <h3 class="tc-exercise-title">Máquina do Tempo</h3>
+      <p class="tc-exercise-desc">Você vai se projetar em dois futuros possíveis e se encontrar nas duas versões. Uma que se cuidou. Uma que não se cuidou. O exercício não julga nem pressiona: ele coloca você diante da escolha que já está sendo feita agora, mesmo sem perceber.</p>
+      <div class="tc-bifurcacao">
+        <div class="tc-bifurcacao-card cuidou">
+          <span class="tc-bifurcacao-label">A versão que se cuidou</span>
+          <p>Encontrou novas rotas para a dor. A comida ainda existe, mas não carrega mais esse peso sozinha.</p>
+        </div>
+        <div class="tc-bifurcacao-card nao-cuidou">
+          <span class="tc-bifurcacao-label">A versão que não se cuidou</span>
+          <p>Continuou no mesmo ciclo. Não por fraqueza, por não ter encontrado outro caminho.</p>
+        </div>
+      </div>
+      <div class="tc-exercise-insight">Muitas mulheres choram nesse exercício. Não de tristeza, de reconhecimento. A resposta já está dentro de você.</div>
+    </div>
+
+    <!-- Exercício 2 — Fase 2 -->
+    <div class="tc-exercise-card">
+      <span class="tc-exercise-num">02</span>
+      <span class="tc-exercise-fase">Fase 2 · Quebrando Narrativas Limitantes</span>
+      <h3 class="tc-exercise-title">Gordura NÃO Existe</h3>
+      <p class="tc-exercise-desc">Esse exercício trabalha as crenças que você carrega sobre o seu corpo e sobre quem você é quando come. Não para invalidar o que você sente — mas para questionar de onde vieram essas narrativas e se elas ainda servem a você.</p>
+      <div class="tc-exercise-insight">O que você acredita sobre si mesma quando está comendo molda mais o seu comportamento alimentar do que qualquer alimento que você escolhe.</div>
+    </div>
+
+    <!-- Exercício 3 — Fase 3 -->
+    <div class="tc-exercise-card">
+      <span class="tc-exercise-num">03</span>
+      <span class="tc-exercise-fase">Fase 3 · Reconexão com a Comida</span>
+      <h3 class="tc-exercise-title">Sentimento vs Com Quem Estou Comendo</h3>
+      <p class="tc-exercise-desc">Você começa a registrar o que está sentindo no momento da refeição e com quem está. O objetivo é criar um mapa entre estado emocional e comportamento alimentar, sem julgamento.</p>
+      <div class="tc-exercise-insight">Para você, a pergunta mais importante não é "o que comi?". É "o que eu estava sentindo quando comi?"</div>
+    </div>
+
+    <!-- INSIGHTS -->
+    <div class="tc-insight-block">
+      <p class="tc-insight-block-title">O que ninguém te contou sobre esse padrão</p>
+      <div class="tc-insight-item">
+        <svg class="tc-insight-icon" viewBox="0 0 24 24" fill="none" stroke="#B97040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+        <p class="tc-insight-text">A maioria das mulheres com esse padrão já tentou monitorar o que come. Já criou regras. Já apostou na força de vontade. E funcionou — por alguns dias. Não porque elas são fracas. Porque <strong>monitorar comportamento sem entender o gatilho emocional por baixo é como secar o chão com a torneira aberta.</strong> Você controla o sintoma enquanto a causa continua rodando.</p>
+      </div>
+      <div class="tc-insight-item">
+        <svg class="tc-insight-icon" viewBox="0 0 24 24" fill="none" stroke="#B97040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+        <p class="tc-insight-text">O padrão emocional não mora na comida. Mora no sistema nervoso. E sistema nervoso não muda com lista de regras — <strong>muda com reconexão progressiva, guiada, dentro de um processo com estrutura real.</strong> É exatamente isso que separa quem entende o problema de quem finalmente consegue mudar.</p>
+      </div>
+      <div class="tc-insight-item">
+        <svg class="tc-insight-icon" viewBox="0 0 24 24" fill="none" stroke="#B97040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        <p class="tc-insight-text">Você chegou até aqui porque algo em você sabe que dessa vez precisa ser diferente. <strong>A diferença entre saber o que está acontecendo e conseguir mudar é ter estrutura para fazer esse trabalho.</strong> Não sozinha. Com método, com acompanhamento, com alguém que já percorreu esse caminho com centenas de mulheres antes de você.</p>
+      </div>
+    </div>
+    <div class="tc-prova-card">
+          
+
+    <div class="tc-ponte">
+      <span class="tc-ponte-label">O que vem depois</span>
+      <h3 class="tc-ponte-title">Você viu o mapa.<br>O Protocolo Raiz é o <em>território.</em></h3>
+      <p class="tc-ponte-text">Os exercícios acima são uma prévia do que te espera. No Protocolo Raiz, todos os 12 exercícios são guiados pela Evelyn em vídeo, com orientações e perguntas que aprofundam cada etapa. Você não precisa descobrir sozinha o que fazer com o que sentir.</p>
+    </div>
+
+    <!-- CTA -->
+    <div class="tc-cta-section">
+      <span class="tc-cta-label">Próximo passo</span>
+      <h2 class="tc-cta-title">Pronta para ir mais <em>fundo?</em></h2>
+      <p class="tc-cta-sub">O Protocolo Raiz reúne tudo que você precisa para começar a tratar a raiz do seu padrão alimentar.</p>
+      <div class="tc-entregaveis">
+        <div class="tc-entregavel"><svg viewBox="0 0 24 24" fill="none" stroke="#B97040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>12 exercícios psicoemocionais com a Evelyn</div>
+        <div class="tc-entregavel"><svg viewBox="0 0 24 24" fill="none" stroke="#B97040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Sessão individual de direcionamento</div>
+        <div class="tc-entregavel"><svg viewBox="0 0 24 24" fill="none" stroke="#B97040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Livro Gordura NÃO Existe em PDF</div>
+        <div class="tc-entregavel"><svg viewBox="0 0 24 24" fill="none" stroke="#B97040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Acesso imediato à área de membros</div>
+      </div>
+      <span class="tc-cta-count" style="font-size:1.25rem;display:block;margin:0 auto 0.5rem;color:rgba(185,112,64,1)">Você viu 3 exercícios. Ainda faltam 9.</span>
+      <p style="font-family:'Jost',sans-serif;font-size:0.8rem;font-weight:300;color:rgba(248,244,238,0.5);margin:0 auto 1.75rem;max-width:320px;line-height:1.55">Todos guiados pela Evelyn em vídeo, dentro do Protocolo Raiz.</p>
+      <p style="font-family:'Jost',sans-serif;font-size:0.8rem;font-weight:300;color:rgba(248,244,238,0.45);margin:0 auto 0.75rem;letter-spacing:0.04em">Protocolo Raiz · R$97 · pagamento único · garantia de 7 dias</p>
+      <a href="https://checkout.ticto.app/O9E1D1B1F" onclick="fbq('trackCustom','DossieCTA',{content_name:'dossie-emocional',currency:'BRL',value:97,ph:window._dossiePhoneHashed})" class="tc-cta-btn">Quero o Protocolo Raiz →</a>
+    </div>
+
+    <div class="tc-footer">Table · Nutrição Comportamental · Moema, São Paulo</div>
   </div>
 </div>
-
-<div class="wrap">
-
-  <!-- BOAS-VINDAS -->
-  <div class="bv">
-    <span class="bv-eyebrow">Uma mensagem da equipe</span>
-    <h2 class="bv-h2">Você não está mais<br><em>tentando sozinha.</em></h2>
-    <p class="bv-text">A partir de agora você faz parte da Table Clinic. Isso significa que cada passo que você der dentro do Protocolo Raiz vai ser guiado — com método, com intenção, com alguém que já percorreu esse caminho com centenas de mulheres antes de você.</p>
-    <p class="bv-text"><strong>O Protocolo Raiz não é mais uma coisa para você tentar.</strong> É um processo para você viver. E começa agora, com este plano.</p>
-  </div>
-
-  <!-- ACESSO -->
-  <div class="acesso">
-    <div class="acesso-card">
-      <div class="acesso-icon">▶</div>
-      <div>
-        <span class="acesso-label">Seu acesso</span>
-        <p class="acesso-title">Protocolo Raiz · Área de Membros</p>
-        <a href="https://protocoloraiz.ticto.club" class="btn-acesso" target="_blank">Acessar agora →</a>
-      </div>
-    </div>
-  </div>
-
-  <div class="div-line"></div>
-
-  <!-- PERFIL -->
-  <div class="perfil-block">
-    <span class="perfil-eyebrow">Seu perfil</span>
-    <h3 class="perfil-h3">A Comedora <em>Emocional</em></h3>
-    <p class="perfil-text">Você come para sobreviver emocionalmente ao que está sentindo — não por fome. A comida virou resposta para a ansiedade, o estresse, a solidão e o cansaço. Não foi fraqueza: foi uma proteção que seu sistema nervoso criou. O trabalho agora é construir novas rotas para essas emoções.</p>
-  </div>
-
-  <!-- EXERCÍCIO PRIORITÁRIO -->
-  <div class="ex-section">
-    <span class="ex-eyebrow">Por onde começar</span>
-    <h2 class="ex-h2">O exercício<br><em>prioritário para você</em></h2>
-
-    <div class="ex-card">
-      <span class="ex-num">01</span>
-      <span class="ex-fase">Fase 1 · Reconexão com você mesma</span>
-      <h3 class="ex-title">Máquina do Tempo</h3>
-      <p class="ex-desc">Este é o ponto de partida para a Comedora Emocional. Antes de mudar qualquer comportamento, você precisa se encontrar nas duas versões possíveis do futuro — a que se cuidou e a que não se cuidou. Esse exercício não cobra, não pressiona. Ele coloca você diante da escolha que já está sendo feita agora, mesmo sem perceber.</p>
-      <div class="ex-insight">Faça este exercício antes de qualquer outro. Ele vai abrir o espaço emocional necessário para tudo que vem depois.</div>
-      <span class="ex-priority">✦ Comece por aqui</span>
-    </div>
-
-    <div class="ex-card">
-      <span class="ex-num">02</span>
-      <span class="ex-fase">Fase 3 · Reconexão com a Comida</span>
-      <h3 class="ex-title">Sentimento vs Com Quem Estou Comendo</h3>
-      <p class="ex-desc">Depois da Máquina do Tempo, este é o segundo exercício mais importante para o seu perfil. Você começa a criar um mapa entre o que sente e como come. Sem julgamento, sem restrição — só observação.</p>
-      <div class="ex-insight">A pergunta que vai mudar tudo para você não é "o que comi?" — é "o que eu estava sentindo quando comi?"</div>
-    </div>
-  </div>
-
-  <!-- BOAS PRÁTICAS -->
-  <div class="bp-section">
-    <span class="bp-eyebrow">Primeiros dias</span>
-    <h2 class="bp-h2">Boas práticas para<br><em>a Comedora Emocional</em></h2>
-
-    <div class="bp-item">
-      <div class="bp-dot"></div>
-      <div class="bp-content">
-        <p class="bp-t">Observe antes de agir</p>
-        <p class="bp-d">Quando sentir vontade de comer fora de hora, pause 2 minutos antes de ir à cozinha. Não para se proibir — para perguntar: o que estou sentindo agora? Esse hábito simples começa a criar espaço entre a emoção e o comportamento.</p>
-      </div>
-    </div>
-
-    <div class="bp-item">
-      <div class="bp-dot"></div>
-      <div class="bp-content">
-        <p class="bp-t">Não restrinja o que come agora</p>
-        <p class="bp-d">Restrição alimentar neste momento vai contra o processo. O Protocolo Raiz não é dieta. Não crie regras sobre o que pode ou não pode comer enquanto trabalha os exercícios — isso só alimenta o ciclo que você quer quebrar.</p>
-      </div>
-    </div>
-
-    <div class="bp-item">
-      <div class="bp-dot"></div>
-      <div class="bp-content">
-        <p class="bp-t">Identifique os seus horários de maior vulnerabilidade</p>
-        <p class="bp-d">Para a Comedora Emocional, geralmente é à noite — quando o dia para e as emoções aparecem. Reconhecer esse padrão sem julgamento é o primeiro passo para trabalhar com ele, não contra ele.</p>
-      </div>
-    </div>
-
-    <div class="bp-item">
-      <div class="bp-dot"></div>
-      <div class="bp-content">
-        <p class="bp-t">Não tente sentir menos — tente nomear mais</p>
-        <p class="bp-d">O objetivo não é eliminar as emoções que levam você à comida. É aprender a nomeá-las com precisão. "Estou ansiosa" é diferente de "estou com medo do que vai acontecer amanhã." Quanto mais específica a emoção, mais ela perde poder sobre o comportamento.</p>
-      </div>
-    </div>
-
-    <div class="bp-item">
-      <div class="bp-dot"></div>
-      <div class="bp-content">
-        <p class="bp-t">Vá no seu ritmo — mas vá</p>
-        <p class="bp-d">O Protocolo Raiz não tem prazo. Mas tem progressão. Faça pelo menos um exercício por semana, no dia e horário que funcionar para você. Consistência baixa e contínua é mais poderosa do que intensidade seguida de abandono.</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- CTA SESSÃO -->
-  <div class="sessao-block">
-    <span class="sessao-eyebrow">Próximo passo</span>
-    <h2 class="sessao-h2">Agende sua<br><em>Sessão de Direcionamento.</em></h2>
-    <p class="sessao-sub">A sessão individual é onde a equipe da Table Clinic olha especificamente para o seu caso, seu histórico e seus primeiros exercícios — e define os próximos passos com você.</p>
-    <a href="https://tableclinic.com.br/pre-sessao" class="btn-sessao" target="_blank">Agendar minha Sessão →</a>
-    <p class="sessao-fine">Videochamada · Duração aproximada de 45 minutos · Incluso no Protocolo Raiz</p>
-  </div>
-
-  <!-- ASSINATURA -->
-  <div class="assinatura">
-    <p class="assinatura-quote">"O trabalho começa agora. E você já tem tudo que precisa para dar o primeiro passo — <em>inclusive a coragem de ter chegado até aqui.</em>"</p>
-    <p class="assinatura-sign">Com carinho, Evelyn.</p>
-  </div>
-
-</div>
-
-<footer>
-  <p class="footer-logo">Table Clinic</p>
-  <p class="footer-fine">© Table Clinic · Evelyn Liu · Moema, São Paulo · Nutrição Comportamental</p>
-</footer>
 
 </body>
 </html>
