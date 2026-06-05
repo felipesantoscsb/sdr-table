@@ -1,0 +1,44 @@
+// src/webhook/tictoHandler.js
+
+import { safeSet, safeDel } from '../redis.js';
+import { normalizePhone } from '../conversation/store.js';
+
+const COMPRA_TTL_SEC = 30 * 24 * 60 * 60; // 30 dias
+
+export async function handleTicto(req, res) {
+  const body = req.body || {};
+  const status = body.status;
+
+  if (status !== 'approved' && status !== 'paid') {
+    return res.status(200).json({ ok: true, ignored: true });
+  }
+
+  try {
+    const customer = body.customer || {};
+    const item     = body.item     || {};
+
+    const ddi    = String(customer.phone?.ddi || '').replace(/\D/g, '');
+    const ddd    = String(customer.phone?.ddd || '').replace(/\D/g, '');
+    const number = String(customer.phone?.number || '').replace(/\D/g, '');
+    const rawPhone = ddi + ddd + number;
+    const phone = normalizePhone(rawPhone);
+
+    const nome    = customer.name || 'Lead';
+    const produto = [item.product_name, item.offer_name].filter(Boolean).join(' — ');
+
+    await safeSet(
+      `compra:${phone}`,
+      JSON.stringify({ nome, phone, produto, timestamp: Date.now() }),
+      'EX', COMPRA_TTL_SEC
+    );
+
+    await safeDel(`followup:${phone}`);
+    await safeDel(`track:${phone}`);
+
+    console.log(`✅ Compra Ticto: ${nome} (${phone}) — ${produto}`);
+  } catch (err) {
+    console.error('❌ Erro ao processar Ticto:', err.message);
+  }
+
+  return res.status(200).json({ ok: true });
+}
