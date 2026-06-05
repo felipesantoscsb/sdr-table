@@ -13,6 +13,16 @@ const CHECK_INTERVAL_MS  = 60 * 1000;            // verificar a cada 1 min
 
 const BASE_URL = process.env.BASE_URL || 'https://estrutura-table-production.up.railway.app';
 
+// Horário comercial (America/Sao_Paulo): seg–sex 8h–21h, sáb–dom 8h–17h
+export function dentroDoHorario() {
+  const brasilia = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const dia = brasilia.getDay();
+  const hora = brasilia.getHours();
+  const fds = dia === 0 || dia === 6;
+  if (fds) return hora >= 8 && hora < 17;
+  return hora >= 8 && hora < 21;
+}
+
 export function startFollowUpJob() {
   console.log('⏰ Job de follow-up 6h ativado');
   setInterval(checkFollowUps, CHECK_INTERVAL_MS);
@@ -52,6 +62,10 @@ async function checkFollowUps() {
       await safeDel(`pending_followup:${phone}`);
       continue;
     }
+
+    // Fora do horário comercial? Mantém na fila (quiz:* persiste) e
+    // o cron reprocessa no próximo horário válido — nunca de madrugada.
+    if (!dentroDoHorario()) continue;
 
     await sendFollowUp(lead, phone);
     await safeDel(key); // remove da fila após processar
