@@ -91,24 +91,30 @@ export async function handleDisparo(req, res) {
   }
 
   const body = req.body;
-  const nome = body.nome || body.Nome || 'você';
-  const phone = normalizePhone(body.whatsapp || body.whats || '');
-  const perfil = resolverPerfil(body.perfil || body.profile || '');
+
+  // Log bruto do payload para debug de mapeamento de campos
+  console.log(`📨 Payload bruto recebido:`, JSON.stringify(body, null, 2));
+
+  const nome     = body.nome || body.Nome || 'você';
+  const phone    = normalizePhone(body.whatsapp || body.whats || '');
+  const perfil   = resolverPerfil(body.perfil || body.profile || body.profileName || '');
   const historico = Array.isArray(body.historico) ? body.historico.join(', ') : body.historico || '';
-  const respostas = parseRespostas(body.respostas);
-  const source = body.source || '';
+  // Make envia as respostas no campo "Perguntas e respostas" (com espaço e acento)
+  const respostasRaw = body['Perguntas e respostas'] || body.respostas || body['perguntas_e_respostas'] || '';
+  const respostas  = parseRespostas(respostasRaw);
+  const source     = body.source || '';
 
   if (!phone) {
     return res.status(400).json({ error: 'WhatsApp obrigatório' });
   }
 
-  // Log completo do input para debugging
-  console.log(`📨 Disparo recebido:
+  console.log(`📨 Disparo mapeado:
   Nome: ${nome}
   Phone: ${phone}
   Perfil original: "${body.perfil || body.profile}" → resolvido: ${perfil}
   Histórico: ${historico || 'vazio'}
-  Respostas: ${respostas.length} itens
+  Respostas raw (campo): ${respostasRaw ? `"${String(respostasRaw).slice(0, 80)}..."` : 'vazio'}
+  Respostas parseadas: ${respostas.length} itens
   Source: ${source}`);
 
   res.status(200).json({ received: true, phone, perfil });

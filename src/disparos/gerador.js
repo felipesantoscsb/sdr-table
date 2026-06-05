@@ -15,16 +15,19 @@ function loadTemplate(perfil) {
 export function gerarDossie(perfil, nomeLead, identificacaoParagrafo, sinaisPersonalizados) {
   let html = loadTemplate(perfil);
 
-  // 1. Injeta o nome da lead antes do título do perfil no hero
-  html = html.replace(
-    /(<div class="tc-hero">[\s\S]*?<span class="tc-perfil-label">)/,
-    `$1`
-  );
-  // Adiciona saudação com o nome acima do tc-hero-title
-  html = html.replace(
-    /<h1 class="tc-hero-title">/,
-    `<p style="font-family:'Jost',sans-serif;font-size:0.85rem;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:0.5rem;">${nomeLead}</p>\n    <h1 class="tc-hero-title">`
-  );
+  console.log(`🎨 Injetando nome: "${nomeLead}" no perfil ${perfil}`);
+
+  // 1. Injeta o nome da lead acima do tc-hero-title no hero
+  const heroTitleSelector = /<h1 class="tc-hero-title">/;
+  if (heroTitleSelector.test(html)) {
+    html = html.replace(
+      heroTitleSelector,
+      `<p style="font-family:'Jost',sans-serif;font-size:0.85rem;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:0.5rem;">${nomeLead}</p>\n    <h1 class="tc-hero-title">`
+    );
+    console.log(`✅ Nome injetado no hero`);
+  } else {
+    console.warn(`⚠️ Seletor tc-hero-title não encontrado no template do perfil ${perfil}`);
+  }
 
   // 2. Injeta parágrafo personalizado após tc-abertura-sub
   if (identificacaoParagrafo) {

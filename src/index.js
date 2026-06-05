@@ -51,19 +51,14 @@ app.get('/d/:slug', async (req, res) => {
   if (!raw) return res.status(404).send('Dossiê não encontrado ou expirado');
   let meta;
   try { meta = JSON.parse(raw); } catch { return res.status(500).send('Erro interno'); }
-  const perfilNome = DOSSIE_PERFIL_MAP[meta.perfil] || 'emocional';
-  const templatePath = join(__dirname, '../public/dossies', `template-${perfilNome}.html`);
+
+  // Serve o HTML já gerado e personalizado (com nome, parágrafo e sinais injetados)
+  const generatedPath = join(__dirname, '../public/planos', `${slug}.html`);
   let html;
-  try { html = readFileSync(templatePath, 'utf-8'); } catch {
-    return res.status(404).send('Template não encontrado');
+  try { html = readFileSync(generatedPath, 'utf-8'); } catch {
+    return res.status(404).send('Dossiê não encontrado ou expirado');
   }
-  if (meta.phone) {
-    html = html.replace(
-      "window.location.search).get('ph')||getCookie('tc_ph')||null",
-      `window.location.search).get('ph')||'${meta.phone}'||getCookie('tc_ph')||null`
-    );
-  }
-  console.log(`[/d/:slug] ${slug} (${perfilNome}) → ${meta.phone || 'anon'}`);
+  console.log(`[/d/:slug] ${slug} (${meta.perfil}) → ${meta.phone || 'anon'}`);
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   return res.send(html);
 });

@@ -13,11 +13,22 @@ A — A Comedora Desconectada: come no automático, não percebe fome ou sacieda
 
 ---
 
+CAMPOS DO PAYLOAD
+
+Os dados chegam com os seguintes campos:
+- nome: nome da lead
+- perfil / profileName: letra do perfil (E, R, S, A) ou nome por extenso
+- historico: contexto histórico da lead
+- "Perguntas e respostas": string com as perguntas e respostas do quiz concatenadas — esta é a PRINCIPAL fonte de personalização
+- source: origem do lead
+
+---
+
 REGRA DE PERSONALIZAÇÃO
 
-Se as respostas do quiz forem ricas e detalhadas: personalize com base nelas, referenciando algo específico que a lead disse.
+Se o campo "Perguntas e respostas" estiver preenchido: use-o como fonte principal de personalização, referenciando algo específico que a lead disse.
 
-Se as respostas forem escassas, genéricas ou não informadas: use o perfil como base e gere um conteúdo mais padronizado, ainda acolhedor e no tom da Table Clinic. Não force referências que não existem.
+Se o campo estiver vazio ou ausente: use o perfil como base e gere um conteúdo acolhedor e padronizado. Não force referências que não existem.
 
 ---
 
@@ -42,8 +53,6 @@ Cada sinal é uma frase curta (máx 12 palavras) que reflete algo do perfil ou d
 Se tiver respostas detalhadas: use algo específico que ela mencionou.
 Se não tiver: gere dois sinais genéricos mas fiéis ao perfil.
 Devem soar como reconhecimento, não como julgamento.
-
----
 
 ---
 
