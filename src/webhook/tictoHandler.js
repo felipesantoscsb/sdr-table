@@ -1,6 +1,6 @@
 // src/webhook/tictoHandler.js
 
-import { safeSet, safeDel } from '../redis.js';
+import { safeGet, safeSet, safeDel } from '../redis.js';
 import { normalizePhone } from '../conversation/store.js';
 
 const COMPRA_TTL_SEC = 30 * 24 * 60 * 60; // 30 dias
@@ -39,10 +39,18 @@ export async function handleTicto(req, res) {
       'EX', COMPRA_TTL_SEC
     );
 
-    // Cancela o fluxo de recuperação do quiz (NÃO toca em "lead:{phone}")
+    // Cancela TODO o fluxo de recuperação do quiz (NÃO toca no agente/conv:)
     await safeDel(`quiz:${phone}`);
+    await safeDel(`pending_dossie:${phone}`);
+    await safeDel(`pending_followup:${phone}`);
     await safeDel(`followup:${phone}`);
-    await safeDel(`track:${phone}`);
+
+    // Track é keyed por uuid — resolve via índice phone→uuid e limpa
+    const trackUuid = await safeGet(`followup_uuid:${phone}`);
+    if (trackUuid) {
+      await safeDel(`track:${trackUuid}`);
+      await safeDel(`followup_uuid:${phone}`);
+    }
 
     console.log(`✅ Compra Ticto: ${nome} (${phone}) — ${produto}`);
   } catch (err) {

@@ -86,6 +86,8 @@ async function sendFollowUp(lead, phone) {
 
     await safeSet(`track:${uuid}`, JSON.stringify({ ...lead, phone }), 'EX', TRACK_TTL_SEC);
     await safeSet(`followup:${phone}`, '1', 'EX', TRACK_TTL_SEC);
+    // Índice phone→uuid para permitir limpeza do track na compra (Ticto)
+    await safeSet(`followup_uuid:${phone}`, uuid, 'EX', TRACK_TTL_SEC);
 
     const nome = lead.nome?.split(' ')[0] || 'Oi';
     const link = `${BASE_URL}/track/${uuid}`;
