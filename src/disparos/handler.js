@@ -156,10 +156,16 @@ export async function fireDossie({ nome, phone, perfil, historico, respostas, so
     const url = `https://raiz.evelynliu.com.br/d/${slug}`;
     const mensagem = `${personalizado.whatsappMessage}\n${url}`;
 
+    const DOSSIE_TTL = 7 * 24 * 60 * 60; // 7 dias
+
+    // HTML completo no Redis — sobrevive a redeploys (disco do Railway é efêmero)
+    await safeSet(`dossie_html:${slug}`, html, 'EX', DOSSIE_TTL);
+
+    // Metadados (inclui nome para permitir regeneração de fallback)
     await safeSet(
       `dossie:${slug}`,
-      JSON.stringify({ phone, perfil, slug, url }),
-      'EX', 7 * 24 * 60 * 60
+      JSON.stringify({ phone, perfil, nome, slug, url }),
+      'EX', DOSSIE_TTL
     );
 
     await sendMessage(phone, mensagem);

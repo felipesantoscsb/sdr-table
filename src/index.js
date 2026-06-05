@@ -10,6 +10,7 @@ import { handleQuizLead } from './webhook/quizHandler.js';
 import { handleZapiMessage, processQueue } from './webhook/zapiHandler.js';
 import { handleQuizPre } from './webhook/quizPreHandler.js';
 import { handleDisparo, fireDossie } from './disparos/handler.js';
+import { gerarDossie } from './disparos/gerador.js';
 import { handleTrack } from './webhook/trackHandler.js';
 import { handleTicto } from './webhook/tictoHandler.js';
 import { getPhonesWithQueue } from './conversation/store.js';
@@ -47,20 +48,42 @@ const DOSSIE_PERFIL_MAP = {
 };
 app.get('/d/:slug', async (req, res) => {
   const { slug } = req.params;
+
+  // 1ª fonte: HTML completo no Redis (sobrevive a redeploys)
+  let html = await safeGet(`dossie_html:${slug}`);
+  if (html) {
+    console.log(`[/d/:slug] ${slug} → servido do Redis`);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(html);
+  }
+
+  // metadados da lead (phone, perfil, nome)
   const raw = await safeGet(`dossie:${slug}`);
   if (!raw) return res.status(404).send('Dossiê não encontrado ou expirado');
   let meta;
   try { meta = JSON.parse(raw); } catch { return res.status(500).send('Erro interno'); }
 
-  // Serve o HTML já gerado e personalizado (com nome, parágrafo e sinais injetados)
-  const generatedPath = join(__dirname, '../public/planos', `${slug}.html`);
-  let html;
-  try { html = readFileSync(generatedPath, 'utf-8'); } catch {
+  // 2ª fonte: arquivo gerado em disco (legado, pode ter sumido no redeploy)
+  try {
+    html = readFileSync(join(__dirname, '../public/planos', `${slug}.html`), 'utf-8');
+    console.log(`[/d/:slug] ${slug} → servido do disco (legado)`);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(html);
+  } catch { /* segue para fallback */ }
+
+  // 3ª fonte (fallback): regenera o template do perfil com o nome da lead
+  const perfilLetra = { emocional: 'E', restritiva: 'R', sobrevivencia: 'S', desconectada: 'A' }[
+    DOSSIE_PERFIL_MAP[meta.perfil] || 'emocional'
+  ];
+  try {
+    html = gerarDossie(perfilLetra, meta.nome || 'você', '', []);
+    await safeSet(`dossie_html:${slug}`, html, 'EX', 7 * 24 * 60 * 60); // recacheia
+    console.log(`[/d/:slug] ${slug} → regenerado via fallback (${meta.perfil})`);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(html);
+  } catch {
     return res.status(404).send('Dossiê não encontrado ou expirado');
   }
-  console.log(`[/d/:slug] ${slug} (${meta.perfil}) → ${meta.phone || 'anon'}`);
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  return res.send(html);
 });
 
 // Health check
