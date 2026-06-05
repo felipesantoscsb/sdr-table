@@ -10,20 +10,25 @@ import { scheduleDisparo } from '../disparos/handler.js';
 import { savePendingFollowup } from '../followup.js';
 
 function normalizeLead(body) {
+  // "Perguntas e respostas" vem como string formatada do aquisicao-table:
+  // "pergunta1: resposta1, pergunta2: resposta2, ..."
+  const perguntasRespostas = body['Perguntas e respostas'] || body['perguntas_e_respostas'] || '';
+
+  // respostas como array (fallback para payloads antigos ou outros clientes)
+  const respostasArray = Array.isArray(body['respostas']) ? body['respostas'] : [];
+
+  // usa a string formatada se disponível, senão converte o array para string
+  const respostas = perguntasRespostas
+    || respostasArray.map(r => `${r.pergunta}: ${r.resposta}`).join(', ')
+    || '';
+
   return {
-    nome:             body['Nome']              || body['nome']             || 'Lead',
-    whatsapp:         body['WhatsApp']          || body['whatsapp']         || body['Whatsapp'] || body['whats'] || '',
-    temperatura:      body['Temperatura']       || body['temperatura']      || body['qualificacao']?.tier || 'desconhecida',
-    score:            body['Score']             || body['score']            || body['qualificacao']?.score || '0',
-    qualificacao:     body['qualificacao']      || null,
-    perfil:           body['perfil']            || body['profile']          || body['qualificacao']?.tier || '',
-    oqueMaisPesa:     body['O que mais pesa']   || body['oqueMaisPesa']     || body['dores'] || '',
-    historico:        body['Histórico']         || body['historico']        || body['Historico'] || '',
-    saude:            body['Saúde']             || body['saude']            || body['Saude'] || '',
-    comprometimento:  body['Comprometimento']   || body['comprometimento']  || '',
-    maiorDificuldade: body['Maior dificuldade'] || body['maiorDificuldade'] || body['dificuldade'] || '',
-    respostas:        body['respostas']         || [],
-    source:           body['source']            || body['Source']           || 'quiz',
+    nome:             body['nome']      || body['Nome']      || 'Lead',
+    whatsapp:         body['whatsapp']  || body['WhatsApp']  || body['Whatsapp'] || body['whats'] || '',
+    perfil:           body['perfil']    || body['profile']   || body['profileName'] || body['qualificacao']?.tier || '',
+    historico:        body['historico'] || body['Histórico'] || body['Historico'] || '',
+    respostas,
+    source:           body['source']    || body['Source']    || 'quiz',
   };
 }
 
@@ -36,12 +41,23 @@ export async function handleQuizLead(req, res) {
     return res.status(401).json({ error: 'Não autorizado' });
   }
 
+  // Log completo do payload recebido para debug
+  console.log('[quiz] Payload recebido:', JSON.stringify(req.body, null, 2));
+
   const leadData = normalizeLead(req.body || {});
   const phone = normalizePhone(leadData.whatsapp);
 
   if (!phone) {
     return res.status(400).json({ error: 'Campo WhatsApp é obrigatório' });
   }
+
+  console.log(`📥 [quiz] Lead mapeado:
+  Nome:       ${leadData.nome}
+  Phone:      ${phone}
+  Perfil:     ${leadData.perfil}
+  Histórico:  ${leadData.historico || 'vazio'}
+  Respostas:  ${leadData.respostas ? `"${String(leadData.respostas).slice(0, 100)}..."` : 'vazio'}
+  Source:     ${leadData.source}`);
 
   // Salva com namespace separado "quiz:" (NÃO interfere em "lead:")
   const entry = { ...leadData, phone, timestamp: Date.now() };
@@ -50,17 +66,14 @@ export async function handleQuizLead(req, res) {
   // Registra pending_followup para sobreviver a redeploys
   await savePendingFollowup(phone, entry);
 
-  console.log(`📥 [quiz] Lead recebido: ${leadData.nome} (${phone})`);
-
   // Responde imediatamente — processamento é async
   res.status(200).json({ received: true, phone });
 
   // Dispara dossiê personalizado em 15 min (sem ativar o agente SDR)
-  // scheduleDisparo persiste pending_dossie no Redis
   await scheduleDisparo({
     nome:      leadData.nome,
     phone,
-    perfil:    leadData.perfil || leadData.temperatura,
+    perfil:    leadData.perfil,
     historico: leadData.historico,
     respostas: leadData.respostas,
     source:    leadData.source,
