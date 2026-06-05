@@ -4,10 +4,12 @@ import express from 'express';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { config } from '../config/index.js';
-import { handleMakeLead } from './webhook/makeHandler.js';
+import { handleMakeLead, handleQuizLead } from './webhook/makeHandler.js';
 import { handleZapiMessage, processQueue } from './webhook/zapiHandler.js';
 import { handleQuizPre } from './webhook/quizPreHandler.js';
 import { handleDisparo } from './disparos/handler.js';
+import { handleTrack } from './webhook/trackHandler.js';
+import { handleTicto } from './webhook/tictoHandler.js';
 import { getPhonesWithQueue } from './conversation/store.js';
 import { startFollowUpJob } from './followup.js';
 
@@ -24,9 +26,14 @@ app.use('/', express.static(join(__dirname, '../public/planos')));
 
 // Webhooks
 app.post('/webhook/lead', handleMakeLead);
+app.post('/webhook/quiz', handleQuizLead);
 app.post('/webhook/zapi', handleZapiMessage);
 app.post('/webhook/quiz-pre', handleQuizPre);
 app.post('/webhook/disparo', handleDisparo);
+app.post('/webhook/ticto', handleTicto);
+
+// Track link (follow-up)
+app.get('/track/:uuid', handleTrack);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -39,9 +46,12 @@ app.listen(config.port, () => {
 
 Endpoints:
   POST /webhook/lead     → Recebe leads do Make (formulário)
+  POST /webhook/quiz     → Recebe leads do quiz (aquisicao-table)
   POST /webhook/zapi     → Recebe mensagens da Zapi
   POST /webhook/quiz-pre → Armazena dados do quiz
   POST /webhook/disparo  → Dispara dossiê personalizado
+  POST /webhook/ticto    → Webhook de compras da Ticto
+  GET  /track/:uuid      → Link de rastreio do follow-up
   GET  /health           → Status do servidor
   GET  /:file            → Propostas e dossiês gerados
   GET  /fotos/:file      → Fotos da equipe

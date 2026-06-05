@@ -3,6 +3,7 @@
 import { activateLead, addMessage, enqueueMessage, normalizePhone } from '../conversation/store.js';
 import { generateFirstContact } from '../ai/anthropic.js';
 import { sendMessage, notifySDR } from '../zapi/sender.js';
+import { safeSet } from '../redis.js';
 
 function dentroDoHorario() {
   const agora = new Date();
@@ -33,23 +34,7 @@ function normalizeLead(body) {
   };
 }
 
-export async function handleMakeLead(req, res) {
-  const secret = req.headers['x-webhook-secret'] || req.body.secret;
-  if (secret !== process.env.WEBHOOK_SECRET) {
-    console.warn('Tentativa de acesso com segredo inválido');
-    return res.status(401).json({ error: 'Não autorizado' });
-  }
-
-  const leadData = normalizeLead(req.body);
-  const phone = normalizePhone(leadData.whatsapp || leadData.whats);
-
-  if (!phone) {
-    return res.status(400).json({ error: 'Campo WhatsApp é obrigatório' });
-  }
-
-  console.log(`📥 Novo lead recebido: ${leadData.nome} (${phone})`);
-  res.status(200).json({ received: true, phone });
-
+async function processLead(leadData, phone, res) {
   try {
     const result = await generateFirstContact(leadData);
 
@@ -60,7 +45,6 @@ export async function handleMakeLead(req, res) {
     await addMessage(phone, 'assistant', result.leadMessage);
 
     if (!dentroDoHorario()) {
-      // Fora do horário: notifica Karina mas segura a mensagem para a lead
       console.log(`⏰ Lead ${leadData.nome} fora do horário — mensagem enfileirada`);
       await enqueueMessage(phone, `__PRIMEIRA_MENSAGEM__${result.leadMessage}`);
       await notifySDR(leadData, result.sdrBriefing);
@@ -74,4 +58,49 @@ export async function handleMakeLead(req, res) {
   } catch (err) {
     console.error(`❌ Erro ao processar lead ${leadData.nome}:`, err.message);
   }
+}
+
+function authWebhook(req, res) {
+  const secret = req.headers['x-webhook-secret'] || req.body.secret;
+  if (secret !== process.env.WEBHOOK_SECRET) {
+    console.warn('Tentativa de acesso com segredo inválido');
+    res.status(401).json({ error: 'Não autorizado' });
+    return false;
+  }
+  return true;
+}
+
+export async function handleMakeLead(req, res) {
+  if (!authWebhook(req, res)) return;
+
+  const leadData = normalizeLead(req.body);
+  const phone = normalizePhone(leadData.whatsapp || leadData.whats);
+
+  if (!phone) {
+    return res.status(400).json({ error: 'Campo WhatsApp é obrigatório' });
+  }
+
+  console.log(`📥 Novo lead recebido: ${leadData.nome} (${phone})`);
+  res.status(200).json({ received: true, phone });
+
+  await processLead(leadData, phone);
+}
+
+export async function handleQuizLead(req, res) {
+  if (!authWebhook(req, res)) return;
+
+  const leadData = normalizeLead(req.body);
+  const phone = normalizePhone(leadData.whatsapp || leadData.whats);
+
+  if (!phone) {
+    return res.status(400).json({ error: 'Campo WhatsApp é obrigatório' });
+  }
+
+  const entry = { ...leadData, phone, timestamp: Date.now() };
+  await safeSet(`lead:${phone}`, JSON.stringify(entry), 'EX', 7 * 24 * 60 * 60);
+
+  console.log(`📥 Lead quiz recebido: ${leadData.nome} (${phone})`);
+  res.status(200).json({ received: true, phone });
+
+  await processLead(leadData, phone);
 }
