@@ -147,7 +147,7 @@ export async function fireDossie({ nome, phone, perfil, historico, respostas, so
     const filename = `${slug}.html`;
     writeFileSync(join(DOSSIES_DIR, filename), html, 'utf-8');
 
-    const url = `https://www.evelynliu.com.br/d/${slug}`;
+    const url = `https://raiz.evelynliu.com.br/d/${slug}`;
     const mensagem = `${personalizado.whatsappMessage}\n${url}`;
 
     await safeSet(
