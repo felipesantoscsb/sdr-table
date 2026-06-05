@@ -1,6 +1,7 @@
 // src/index.js
 
 import express from 'express';
+import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { config } from '../config/index.js';
@@ -37,6 +38,35 @@ app.post('/webhook/ticto', handleTicto);
 
 // Track link (follow-up)
 app.get('/track/:uuid', handleTrack);
+
+// Dossiês personalizados — servidos via raiz.evelynliu.com.br/d/:slug
+const DOSSIE_PERFIL_MAP = {
+  E: 'emocional', R: 'restritiva', S: 'sobrevivencia', A: 'desconectada',
+  emocional: 'emocional', restritiva: 'restritiva',
+  sobrevivencia: 'sobrevivencia', desconectada: 'desconectada',
+};
+app.get('/d/:slug', async (req, res) => {
+  const { slug } = req.params;
+  const raw = await safeGet(`dossie:${slug}`);
+  if (!raw) return res.status(404).send('Dossiê não encontrado ou expirado');
+  let meta;
+  try { meta = JSON.parse(raw); } catch { return res.status(500).send('Erro interno'); }
+  const perfilNome = DOSSIE_PERFIL_MAP[meta.perfil] || 'emocional';
+  const templatePath = join(__dirname, '../public/dossies', `template-${perfilNome}.html`);
+  let html;
+  try { html = readFileSync(templatePath, 'utf-8'); } catch {
+    return res.status(404).send('Template não encontrado');
+  }
+  if (meta.phone) {
+    html = html.replace(
+      "window.location.search).get('ph')||getCookie('tc_ph')||null",
+      `window.location.search).get('ph')||'${meta.phone}'||getCookie('tc_ph')||null`
+    );
+  }
+  console.log(`[/d/:slug] ${slug} (${perfilNome}) → ${meta.phone || 'anon'}`);
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.send(html);
+});
 
 // Health check
 app.get('/health', (req, res) => {
