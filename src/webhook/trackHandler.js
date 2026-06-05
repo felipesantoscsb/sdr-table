@@ -31,19 +31,18 @@ export async function handleTrack(req, res) {
 }
 
 async function notifyKarina(lead, uuid) {
-  const tier = lead.qualificacao?.tier || lead.temperatura || '-';
+  // Campos alinhados com o que o quizHandler grava:
+  // { nome, whatsapp, perfil, historico, respostas, source, phone }
   const linhas = [
     `🔔 Lead interessada em conversar!`,
     ``,
     `👤 Nome: ${lead.nome || '-'}`,
     `📱 Telefone: ${lead.phone || lead.whatsapp || '-'}`,
-    `🎯 Perfil: ${tier}`,
+    `🎯 Perfil: ${lead.perfil || '-'}`,
     ``,
-    `📊 Respostas do quiz:`,
-    `• O que mais pesa: ${lead.oqueMaisPesa || '-'}`,
+    `📊 Quiz:`,
     `• Histórico: ${lead.historico || '-'}`,
-    `• Saúde: ${lead.saude || '-'}`,
-    `• Maior dificuldade: ${lead.maiorDificuldade || '-'}`,
+    `• Perguntas e respostas: ${lead.respostas || '-'}`,
     ``,
     `Ela acabou de clicar para falar com você agora 👆`,
   ];
