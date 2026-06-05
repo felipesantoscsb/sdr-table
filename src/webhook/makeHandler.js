@@ -1,9 +1,9 @@
 // src/webhook/makeHandler.js
+// Processa leads do formulário Make → ativa o agente SDR.
 
 import { activateLead, addMessage, enqueueMessage, normalizePhone } from '../conversation/store.js';
 import { generateFirstContact } from '../ai/anthropic.js';
 import { sendMessage, notifySDR } from '../zapi/sender.js';
-import { safeSet } from '../redis.js';
 
 function dentroDoHorario() {
   const agora = new Date();
@@ -34,7 +34,7 @@ function normalizeLead(body) {
   };
 }
 
-async function processLead(leadData, phone, res) {
+async function processLead(leadData, phone) {
   try {
     const result = await generateFirstContact(leadData);
 
@@ -81,25 +81,6 @@ export async function handleMakeLead(req, res) {
   }
 
   console.log(`📥 Novo lead recebido: ${leadData.nome} (${phone})`);
-  res.status(200).json({ received: true, phone });
-
-  await processLead(leadData, phone);
-}
-
-export async function handleQuizLead(req, res) {
-  if (!authWebhook(req, res)) return;
-
-  const leadData = normalizeLead(req.body);
-  const phone = normalizePhone(leadData.whatsapp || leadData.whats);
-
-  if (!phone) {
-    return res.status(400).json({ error: 'Campo WhatsApp é obrigatório' });
-  }
-
-  const entry = { ...leadData, phone, timestamp: Date.now() };
-  await safeSet(`lead:${phone}`, JSON.stringify(entry), 'EX', 7 * 24 * 60 * 60);
-
-  console.log(`📥 Lead quiz recebido: ${leadData.nome} (${phone})`);
   res.status(200).json({ received: true, phone });
 
   await processLead(leadData, phone);

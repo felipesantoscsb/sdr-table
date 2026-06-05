@@ -39,6 +39,8 @@ export async function handleTicto(req, res) {
       'EX', COMPRA_TTL_SEC
     );
 
+    // Cancela o fluxo de recuperação do quiz (NÃO toca em "lead:{phone}")
+    await safeDel(`quiz:${phone}`);
     await safeDel(`followup:${phone}`);
     await safeDel(`track:${phone}`);
 

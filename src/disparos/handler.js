@@ -146,3 +146,40 @@ export async function handleDisparo(req, res) {
     setTimeout(agendarDisparo, totalDelay);
   }
 }
+
+/**
+ * Agenda envio de dossiê para um lead sem passar por req/res.
+ * Usado internamente pelo fluxo de quiz.
+ */
+export function scheduleDisparo({ nome, phone, perfil: perfilRaw, historico: historicoRaw, respostas: respostasRaw, source: src }) {
+  const perfil     = resolverPerfil(perfilRaw || '');
+  const historico  = Array.isArray(historicoRaw) ? historicoRaw.join(', ') : (historicoRaw || '');
+  const respostas  = parseRespostas(respostasRaw);
+  const source     = src || '';
+
+  const enviar = async () => {
+    try {
+      console.log(`🤖 [quiz] Gerando dossiê para ${nome} (perfil ${perfil}, ${respostas.length} respostas)...`);
+      const personalizado = await generateDossie({ nome, perfil, historico, respostas, source });
+      const html = gerarDossie(perfil, nome, personalizado.identificacaoParagrafo, personalizado.sinaisPersonalizados);
+      const slug = `${slugify(nome)}-${Date.now()}`;
+      const filename = `${slug}.html`;
+      writeFileSync(join(DOSSIES_DIR, filename), html, 'utf-8');
+      const url = `https://jornada.tableclinic.com.br/${filename}`;
+      const mensagem = `${personalizado.whatsappMessage}\n${url}`;
+      await sendMessage(phone, mensagem);
+      console.log(`✅ [quiz] Dossiê enviado para ${nome}: ${url}`);
+    } catch (err) {
+      console.error(`❌ [quiz] Erro no disparo para ${nome} (${phone}):`, err.message);
+    }
+  };
+
+  if (dentroDoHorario()) {
+    console.log(`⏳ [quiz] Disparo agendado para ${nome} em 15 minutos`);
+    setTimeout(enviar, DELAY_MS);
+  } else {
+    const totalDelay = msAteAbertura() + DELAY_MS;
+    console.log(`⏰ [quiz] Fora do horário — disparo para ${nome} em ${Math.round(totalDelay / 60000)} minutos`);
+    setTimeout(enviar, totalDelay);
+  }
+}

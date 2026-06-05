@@ -1,7 +1,9 @@
 // src/followup.js
+//
+// Job que roda a cada 1 min e processa follow-up 6h para leads do quiz.
+// Varre keys "quiz:{phone}" no Redis — NÃO toca em "lead:{phone}" (formulário).
 
 import { safeGet, safeSet, safeDel, safeKeys } from './redis.js';
-import { normalizePhone } from './conversation/store.js';
 import { sendMessage } from './zapi/sender.js';
 
 const FOLLOWUP_DELAY_MS = 6 * 60 * 60 * 1000; // 6 horas
@@ -16,7 +18,7 @@ export function startFollowUpJob() {
 }
 
 async function checkFollowUps() {
-  const keys = await safeKeys('lead:*');
+  const keys = await safeKeys('quiz:*');
   if (!keys.length) return;
 
   const now = Date.now();
@@ -28,7 +30,7 @@ async function checkFollowUps() {
     let lead;
     try { lead = JSON.parse(raw); } catch { continue; }
 
-    const phone = lead.phone || key.replace('lead:', '');
+    const phone = lead.phone || key.replace('quiz:', '');
     if (!phone) continue;
 
     // Só processa leads com 6h+
@@ -37,7 +39,7 @@ async function checkFollowUps() {
     // Já comprou?
     const compra = await safeGet(`compra:${phone}`);
     if (compra) {
-      console.log(`🛒 Lead ${lead.nome} (${phone}) já comprou — pulando follow-up`);
+      console.log(`🛒 [quiz] Lead ${lead.nome} (${phone}) já comprou — cancelando follow-up`);
       await safeDel(key);
       continue;
     }
@@ -47,7 +49,7 @@ async function checkFollowUps() {
     if (jaEnviou) continue;
 
     await sendFollowUp(lead, phone);
-    await safeDel(key); // remove da fila de pendentes
+    await safeDel(key); // remove da fila após processar
   }
 }
 
@@ -67,8 +69,8 @@ async function sendFollowUp(lead, phone) {
       `Quer conversar com ela? 👇\n${link}`;
 
     await sendMessage(phone, msg, { skipDelay: true });
-    console.log(`📤 Follow-up enviado para ${lead.nome} (${phone}) — track: ${uuid}`);
+    console.log(`📤 [quiz] Follow-up enviado para ${lead.nome} (${phone}) — track: ${uuid}`);
   } catch (err) {
-    console.error(`❌ Erro no follow-up de ${phone}:`, err.message);
+    console.error(`❌ [quiz] Erro no follow-up de ${phone}:`, err.message);
   }
 }
