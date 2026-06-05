@@ -8,6 +8,7 @@ import { gerarDossie } from './gerador.js';
 import { sendMessage } from '../zapi/sender.js';
 import { normalizePhone } from '../conversation/store.js';
 import { config } from '../../config/index.js';
+import { safeSet } from '../redis.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DOSSIES_DIR = join(__dirname, '../../public/planos');
@@ -124,8 +125,15 @@ export async function handleDisparo(req, res) {
       const filename = `${slug}.html`;
       writeFileSync(join(DOSSIES_DIR, filename), html, 'utf-8');
 
-      const url = `https://jornada.tableclinic.com.br/${filename}`;
+      const url = `https://www.evelynliu.com.br/d/${slug}`;
       const mensagem = `${personalizado.whatsappMessage}\n${url}`;
+
+      // Salva metadados no Redis para servir o dossiê via /d/:slug
+      await safeSet(
+        `dossie:${slug}`,
+        JSON.stringify({ phone, perfil, slug, url }),
+        'EX', 7 * 24 * 60 * 60
+      );
 
       await sendMessage(phone, mensagem);
       console.log(`✅ Dossiê enviado para ${nome}: ${url}`);
@@ -165,8 +173,13 @@ export function scheduleDisparo({ nome, phone, perfil: perfilRaw, historico: his
       const slug = `${slugify(nome)}-${Date.now()}`;
       const filename = `${slug}.html`;
       writeFileSync(join(DOSSIES_DIR, filename), html, 'utf-8');
-      const url = `https://jornada.tableclinic.com.br/${filename}`;
+      const url = `https://www.evelynliu.com.br/d/${slug}`;
       const mensagem = `${personalizado.whatsappMessage}\n${url}`;
+      await safeSet(
+        `dossie:${slug}`,
+        JSON.stringify({ phone, perfil, slug, url }),
+        'EX', 7 * 24 * 60 * 60
+      );
       await sendMessage(phone, mensagem);
       console.log(`✅ [quiz] Dossiê enviado para ${nome}: ${url}`);
     } catch (err) {

@@ -3,11 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>A Comedora em Modo Sobrevivência · Table</title>
+<title>A Comedora em Modo Sobrevivência · Protocolo Raiz · Evelyn Liu</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
-
+<script>
+!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+document,'script','https://connect.facebook.net/en_US/fbevents.js');
+(async function(){
+  function getCookie(n){const m=document.cookie.match(new RegExp('(^| )'+n+'=([^;]+)'));return m?m[2]:null;}
+  async function sha256(str){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(str).toLowerCase().trim()));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+  const phRaw=new URLSearchParams(window.location.search).get('ph')||getCookie('tc_ph')||null;
+  const phHashed=phRaw?await sha256(phRaw):null;
+  const fbclid=new URLSearchParams(window.location.search).get('fbclid')||null;
+  window._dossiePhone=phRaw;
+  window._dossiePhoneHashed=phHashed;
+  fbq('init','989971718548782',phHashed?{ph:phHashed}:{});
+  fbq('trackCustom','DossieView',{content_name:'dossie-sobrevivencia',currency:'BRL',value:147,ph:phHashed});
+  fbq('track','PageView');
+  fetch('/api/capi/dossie-view',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:phRaw,fbclid:fbclid,perfil:'sobrevivencia',event_source_url:window.location.href})}).catch(()=>{});
+})();
+</script>
 </head>
 <body style="margin:0;padding:0;">
 <style>
@@ -137,9 +156,9 @@
     <div class="tc-exercise-card">
       <span class="tc-exercise-num">02</span>
       <span class="tc-exercise-fase">Fase 2 · Quebrando Narrativas Limitantes</span>
-      <h3 class="tc-exercise-title">Gordura NÃO Existe</h3>
-      <p class="tc-exercise-desc">Esse exercício trabalha as crenças que você carrega sobre o seu corpo e sobre o que significa cuidar de si quando não há tempo. Não para invalidar o que você sente — mas para questionar de onde vieram essas narrativas e se elas ainda fazem sentido para você hoje.</p>
-      <div class="tc-exercise-insight">Quem vive em modo sobrevivência muitas vezes acredita que se cuidar é um luxo. Esse exercício começa a desconstruir exatamente isso.</div>
+      <h3 class="tc-exercise-title">Crenças que nos Limitam</h3>
+      <p class="tc-exercise-desc">Esse exercício trabalha as crenças que você carrega sobre o seu corpo e o que significa cuidar de si quando não há tempo. A ideia não é invalidar o que você sente — mas iluminar de onde vieram essas narrativas e se elas ainda fazem sentido para quem você é hoje.</p>
+      <div class="tc-exercise-insight">Quem vive em modo sobrevivência muitas vezes acredita que se cuidar é secundário. Esse exercício começa a questionar exatamente essa crença.</div>
     </div>
 
     <div class="tc-exercise-card">
@@ -158,11 +177,11 @@
       </div>
       <div class="tc-insight-item">
         <svg class="tc-insight-icon" viewBox="0 0 24 24" fill="none" stroke="#B97040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
-        <p class="tc-insight-text">O padrão de sobrevivência não muda com mais organização. Muda quando você entende <strong>por que colocar a si mesma em último lugar virou automático — e o que precisa mudar dentro disso.</strong> Esse é um trabalho psicoemocional. E ele precisa de método, não de força de vontade.</p>
+        <p class="tc-insight-text">O padrão de sobrevivência não muda com mais organização. Muda quando você entende <strong>por que colocar a si mesma em último lugar virou automático — e o que precisa mudar dentro disso.</strong> Esse é um processo de autoconhecimento. E ele precisa de método, não de força de vontade.</p>
       </div>
       <div class="tc-insight-item">
         <svg class="tc-insight-icon" viewBox="0 0 24 24" fill="none" stroke="#B97040" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-        <p class="tc-insight-text">O fato de você estar aqui, lendo isso, já diz algo importante: <strong>uma parte de você sabe que não dá para continuar assim.</strong> O Protocolo Raiz foi construído para quem não tem tempo sobrando — justamente porque trata a raiz, não a superfície. Menos tentativas. Mais resultado real.</p>
+        <p class="tc-insight-text">O fato de você estar aqui, lendo isso, já diz algo importante: <strong>uma parte de você sabe que não dá para continuar assim.</strong> O Protocolo Raiz foi construído para quem não tem tempo sobrando — justamente porque trata a raiz, não a superfície. Menos tentativas. Mais mudança real.</p>
       </div>
     </div>
 
@@ -188,10 +207,10 @@
       <span class="tc-cta-count" style="font-size:1.25rem;display:block;margin:0 auto 0.5rem;color:rgba(185,112,64,1)">Você viu 3 exercícios. Ainda faltam 9.</span>
       <p style="font-family:'Jost',sans-serif;font-size:0.8rem;font-weight:300;color:rgba(248,244,238,0.5);margin:0 auto 1.75rem;max-width:320px;line-height:1.55">Todos guiados pela Evelyn em vídeo, dentro do Protocolo Raiz.</p>
       <p style="font-family:'Jost',sans-serif;font-size:0.8rem;font-weight:300;color:rgba(248,244,238,0.45);margin:0 auto 0.75rem;letter-spacing:0.04em">Protocolo Raiz · R$97 · pagamento único · garantia de 7 dias</p>
-      <a href="https://checkout.ticto.app/O9E1D1B1F" class="tc-cta-btn">Quero o Protocolo Raiz →</a>
+      <a href="https://checkout.ticto.app/O9E1D1B1F" class="tc-cta-btn" onclick="fbq('trackCustom','DossieCTA',{content_name:'dossie-sobrevivencia',currency:'BRL',value:147,ph:window._dossiePhoneHashed});fbq('track','InitiateCheckout',{content_name:'InitiateCheckout_Dossie',currency:'BRL',value:147,ph:window._dossiePhoneHashed});fetch('/api/capi/initiate-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:window._dossiePhone,content_name:'InitiateCheckout_Dossie',perfil:'sobrevivencia',event_source_url:window.location.href})}).catch(()=>{});">Quero o Protocolo Raiz →</a>
     </div>
 
-    <div class="tc-footer">Table · Nutrição Comportamental · Moema, São Paulo</div>
+    <div class="tc-footer">Evelyn Liu · Protocolo Raiz</div>
   </div>
 </div>
 

@@ -45,6 +45,24 @@ Devem soar como reconhecimento, não como julgamento.
 
 ---
 
+---
+
+DIRETRIZES DE LINGUAGEM OBRIGATÓRIAS
+
+Tom: acolhedor, feminino, introspectivo. Nunca prescritivo ou de diagnóstico.
+
+EVITAR absolutamente:
+- Promessas de resultado físico mensurável: "emagreça", "perca peso", "queime gordura", "X kg", "quilos", "metabolismo acelerado".
+- Termos clínicos ou médicos: "diagnóstico", "tratamento", "terapia", "transtorno", "patologia", "doença", "sintoma clínico".
+- Linguagem prescritiva ou de autoridade médica: "você precisa", "é necessário fazer", "a solução é".
+
+USAR em vez disso:
+- Autoconhecimento, reconexão, processo interno, jornada, caminho.
+- Linguagem de descoberta: "entender", "perceber", "reconhecer", "voltar para si mesma".
+- Foco comportamental e emocional — nunca físico ou estético como fim em si.
+
+---
+
 RESPONDA APENAS EM JSON VÁLIDO, sem texto antes ou depois, sem blocos de código:
 
 {
