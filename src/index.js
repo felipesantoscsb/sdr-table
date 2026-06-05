@@ -8,11 +8,13 @@ import { handleMakeLead } from './webhook/makeHandler.js';
 import { handleQuizLead } from './webhook/quizHandler.js';
 import { handleZapiMessage, processQueue } from './webhook/zapiHandler.js';
 import { handleQuizPre } from './webhook/quizPreHandler.js';
-import { handleDisparo } from './disparos/handler.js';
+import { handleDisparo, fireDossie } from './disparos/handler.js';
 import { handleTrack } from './webhook/trackHandler.js';
 import { handleTicto } from './webhook/tictoHandler.js';
 import { getPhonesWithQueue } from './conversation/store.js';
-import { startFollowUpJob } from './followup.js';
+import { startFollowUpJob, fireFollowUp } from './followup.js';
+import { safeKeys, safeGet } from './redis.js';
+const redisGet = safeGet; // alias para clareza no recovery
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -41,6 +43,75 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', uptime: Math.floor(process.uptime()) + 's' });
 });
 
+// ─── Recovery de timers após redeploy ────────────────────────────────────────
+
+async function recoverPendingTimers() {
+  const now = Date.now();
+  let dossiesRecovered = 0;
+  let followupsRecovered = 0;
+
+  // ── Dossiês pendentes ──────────────────────────────────────────────────────
+  const dossieKeys = await safeKeys('pending_dossie:*');
+  for (const key of dossieKeys) {
+    const raw = await safeGet(key);
+    if (!raw) continue;
+    let pending;
+    try { pending = JSON.parse(raw); } catch { continue; }
+
+    const { phone, leadData, fire_at } = pending;
+    if (!phone || !leadData) continue;
+
+    const remaining = fire_at - now;
+    const delay = remaining > 0 ? remaining : 0;
+
+    if (remaining <= 0) {
+      console.log(`⚡ [recovery] Dossiê para ${leadData.nome} (${phone}) — atrasado ${Math.round(-remaining / 60000)}min, disparando agora`);
+    } else {
+      console.log(`⏳ [recovery] Dossiê para ${leadData.nome} (${phone}) — reagendado em ${Math.round(delay / 60000)}min`);
+    }
+
+    setTimeout(() => fireDossie(leadData), delay);
+    dossiesRecovered++;
+  }
+
+  // ── Follow-ups pendentes ───────────────────────────────────────────────────
+  const followupKeys = await safeKeys('pending_followup:*');
+  for (const key of followupKeys) {
+    const raw = await safeGet(key);
+    if (!raw) continue;
+    let pending;
+    try { pending = JSON.parse(raw); } catch { continue; }
+
+    const { phone, leadData, fire_at } = pending;
+    if (!phone || !leadData) continue;
+
+    // Se já enviou o follow-up, ignora
+    const jaEnviou = await redisGet(`followup:${phone}`);
+    if (jaEnviou) continue;
+
+    // Se já comprou, ignora
+    const comprou = await redisGet(`compra:${phone}`);
+    if (comprou) continue;
+
+    const remaining = fire_at - now;
+
+    if (remaining <= 0) {
+      console.log(`⚡ [recovery] Follow-up para ${leadData.nome} (${phone}) — atrasado, disparando agora`);
+      setTimeout(() => fireFollowUp(leadData, phone), 0);
+    } else {
+      console.log(`⏳ [recovery] Follow-up para ${leadData.nome} (${phone}) — reagendado em ${Math.round(remaining / 60000)}min`);
+      setTimeout(() => fireFollowUp(leadData, phone), remaining);
+    }
+    followupsRecovered++;
+  }
+
+  if (dossiesRecovered + followupsRecovered > 0) {
+    console.log(`✅ [recovery] ${dossiesRecovered} dossiê(s) e ${followupsRecovered} follow-up(s) recuperados`);
+  } else {
+    console.log('✅ [recovery] Nenhum timer pendente encontrado');
+  }
+}
+
 app.listen(config.port, () => {
   console.log(`
 🚀 SDR WhatsApp rodando na porta ${config.port}
@@ -59,6 +130,7 @@ Endpoints:
   `);
 
   startFollowUpJob();
+  recoverPendingTimers().catch(err => console.error('❌ Erro na recovery de timers:', err.message));
 
   setInterval(async () => {
     const brasilia = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));

@@ -7,6 +7,7 @@
 import { safeSet } from '../redis.js';
 import { normalizePhone } from '../conversation/store.js';
 import { scheduleDisparo } from '../disparos/handler.js';
+import { savePendingFollowup } from '../followup.js';
 
 function normalizeLead(body) {
   return {
@@ -46,13 +47,17 @@ export async function handleQuizLead(req, res) {
   const entry = { ...leadData, phone, timestamp: Date.now() };
   await safeSet(`quiz:${phone}`, JSON.stringify(entry), 'EX', QUIZ_TTL_SEC);
 
+  // Registra pending_followup para sobreviver a redeploys
+  await savePendingFollowup(phone, entry);
+
   console.log(`📥 [quiz] Lead recebido: ${leadData.nome} (${phone})`);
 
   // Responde imediatamente — processamento é async
   res.status(200).json({ received: true, phone });
 
   // Dispara dossiê personalizado em 15 min (sem ativar o agente SDR)
-  scheduleDisparo({
+  // scheduleDisparo persiste pending_dossie no Redis
+  await scheduleDisparo({
     nome:      leadData.nome,
     phone,
     perfil:    leadData.perfil || leadData.temperatura,
@@ -60,6 +65,4 @@ export async function handleQuizLead(req, res) {
     respostas: leadData.respostas,
     source:    leadData.source,
   });
-
-  // Follow-up 6h é gerenciado pelo job em followup.js (varre quiz:*)
 }

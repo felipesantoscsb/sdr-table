@@ -8,7 +8,9 @@ import { gerarDossie } from './gerador.js';
 import { sendMessage } from '../zapi/sender.js';
 import { normalizePhone } from '../conversation/store.js';
 import { config } from '../../config/index.js';
-import { safeSet } from '../redis.js';
+import { safeSet, safeDel } from '../redis.js';
+
+const PENDING_DOSSIE_TTL = 24 * 60 * 60; // 24h — cobre fora-de-horário
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DOSSIES_DIR = join(__dirname, '../../public/planos');
@@ -111,47 +113,55 @@ export async function handleDisparo(req, res) {
 
   res.status(200).json({ received: true, phone, perfil });
 
-  const agendarDisparo = async () => {
-    try {
-      console.log(`🤖 Gerando dossiê para ${nome} (perfil ${perfil}, ${respostas.length} respostas)...`);
+  const delay = dentroDoHorario() ? DELAY_MS : msAteAbertura() + DELAY_MS;
+  const fire_at = Date.now() + delay;
 
-      const personalizado = await generateDossie({ nome, perfil, historico, respostas, source });
-      console.log(`✅ Conteúdo gerado — mensagem: "${personalizado.whatsappMessage?.slice(0, 60)}..."`);
-
-      const html = gerarDossie(perfil, nome, personalizado.identificacaoParagrafo, personalizado.sinaisPersonalizados);
-      console.log(`📄 HTML gerado (${html.length} chars)`);
-
-      const slug = `${slugify(nome)}-${Date.now()}`;
-      const filename = `${slug}.html`;
-      writeFileSync(join(DOSSIES_DIR, filename), html, 'utf-8');
-
-      const url = `https://www.evelynliu.com.br/d/${slug}`;
-      const mensagem = `${personalizado.whatsappMessage}\n${url}`;
-
-      // Salva metadados no Redis para servir o dossiê via /d/:slug
-      await safeSet(
-        `dossie:${slug}`,
-        JSON.stringify({ phone, perfil, slug, url }),
-        'EX', 7 * 24 * 60 * 60
-      );
-
-      await sendMessage(phone, mensagem);
-      console.log(`✅ Dossiê enviado para ${nome}: ${url}`);
-
-    } catch (err) {
-      console.error(`❌ Erro no disparo para ${nome} (${phone}):`, err.message);
-      console.error(err.stack);
-    }
-  };
+  await safeSet(
+    `pending_dossie:${phone}`,
+    JSON.stringify({ phone, leadData: { nome, perfil, historico, respostas, source }, scheduled_at: Date.now(), fire_at }),
+    'EX', PENDING_DOSSIE_TTL
+  );
 
   if (dentroDoHorario()) {
     console.log(`⏳ Disparo agendado para ${nome} em 15 minutos`);
-    setTimeout(agendarDisparo, DELAY_MS);
   } else {
-    const msAte8 = msAteAbertura();
-    const totalDelay = msAte8 + DELAY_MS;
-    console.log(`⏰ Fora do horário — disparo para ${nome} em ${Math.round(totalDelay / 60000)} minutos`);
-    setTimeout(agendarDisparo, totalDelay);
+    console.log(`⏰ Fora do horário — disparo para ${nome} em ${Math.round(delay / 60000)} minutos`);
+  }
+  setTimeout(() => fireDossie({ nome, phone, perfil, historico, respostas, source }), delay);
+}
+
+/**
+ * Envia o dossiê imediatamente (sem agendamento).
+ * Chamado pelo setTimeout e pela recovery de redeploy.
+ */
+export async function fireDossie({ nome, phone, perfil, historico, respostas, source }) {
+  try {
+    console.log(`🤖 Gerando dossiê para ${nome} (perfil ${perfil}, ${respostas.length} respostas)...`);
+    const personalizado = await generateDossie({ nome, perfil, historico, respostas, source });
+    console.log(`✅ Conteúdo gerado — mensagem: "${personalizado.whatsappMessage?.slice(0, 60)}..."`);
+
+    const html = gerarDossie(perfil, nome, personalizado.identificacaoParagrafo, personalizado.sinaisPersonalizados);
+    console.log(`📄 HTML gerado (${html.length} chars)`);
+
+    const slug = `${slugify(nome)}-${Date.now()}`;
+    const filename = `${slug}.html`;
+    writeFileSync(join(DOSSIES_DIR, filename), html, 'utf-8');
+
+    const url = `https://www.evelynliu.com.br/d/${slug}`;
+    const mensagem = `${personalizado.whatsappMessage}\n${url}`;
+
+    await safeSet(
+      `dossie:${slug}`,
+      JSON.stringify({ phone, perfil, slug, url }),
+      'EX', 7 * 24 * 60 * 60
+    );
+
+    await sendMessage(phone, mensagem);
+    await safeDel(`pending_dossie:${phone}`);
+    console.log(`✅ Dossiê enviado para ${nome}: ${url}`);
+  } catch (err) {
+    console.error(`❌ Erro no disparo para ${nome} (${phone}):`, err.message);
+    console.error(err.stack);
   }
 }
 
@@ -159,40 +169,25 @@ export async function handleDisparo(req, res) {
  * Agenda envio de dossiê para um lead sem passar por req/res.
  * Usado internamente pelo fluxo de quiz.
  */
-export function scheduleDisparo({ nome, phone, perfil: perfilRaw, historico: historicoRaw, respostas: respostasRaw, source: src }) {
-  const perfil     = resolverPerfil(perfilRaw || '');
-  const historico  = Array.isArray(historicoRaw) ? historicoRaw.join(', ') : (historicoRaw || '');
-  const respostas  = parseRespostas(respostasRaw);
-  const source     = src || '';
+export async function scheduleDisparo({ nome, phone, perfil: perfilRaw, historico: historicoRaw, respostas: respostasRaw, source: src }) {
+  const perfil    = resolverPerfil(perfilRaw || '');
+  const historico = Array.isArray(historicoRaw) ? historicoRaw.join(', ') : (historicoRaw || '');
+  const respostas = parseRespostas(respostasRaw);
+  const source    = src || '';
 
-  const enviar = async () => {
-    try {
-      console.log(`🤖 [quiz] Gerando dossiê para ${nome} (perfil ${perfil}, ${respostas.length} respostas)...`);
-      const personalizado = await generateDossie({ nome, perfil, historico, respostas, source });
-      const html = gerarDossie(perfil, nome, personalizado.identificacaoParagrafo, personalizado.sinaisPersonalizados);
-      const slug = `${slugify(nome)}-${Date.now()}`;
-      const filename = `${slug}.html`;
-      writeFileSync(join(DOSSIES_DIR, filename), html, 'utf-8');
-      const url = `https://www.evelynliu.com.br/d/${slug}`;
-      const mensagem = `${personalizado.whatsappMessage}\n${url}`;
-      await safeSet(
-        `dossie:${slug}`,
-        JSON.stringify({ phone, perfil, slug, url }),
-        'EX', 7 * 24 * 60 * 60
-      );
-      await sendMessage(phone, mensagem);
-      console.log(`✅ [quiz] Dossiê enviado para ${nome}: ${url}`);
-    } catch (err) {
-      console.error(`❌ [quiz] Erro no disparo para ${nome} (${phone}):`, err.message);
-    }
-  };
+  const delay   = dentroDoHorario() ? DELAY_MS : msAteAbertura() + DELAY_MS;
+  const fire_at = Date.now() + delay;
+
+  await safeSet(
+    `pending_dossie:${phone}`,
+    JSON.stringify({ phone, leadData: { nome, perfil, historico, respostas, source }, scheduled_at: Date.now(), fire_at }),
+    'EX', PENDING_DOSSIE_TTL
+  );
 
   if (dentroDoHorario()) {
     console.log(`⏳ [quiz] Disparo agendado para ${nome} em 15 minutos`);
-    setTimeout(enviar, DELAY_MS);
   } else {
-    const totalDelay = msAteAbertura() + DELAY_MS;
-    console.log(`⏰ [quiz] Fora do horário — disparo para ${nome} em ${Math.round(totalDelay / 60000)} minutos`);
-    setTimeout(enviar, totalDelay);
+    console.log(`⏰ [quiz] Fora do horário — disparo para ${nome} em ${Math.round(delay / 60000)} minutos`);
   }
+  setTimeout(() => fireDossie({ nome, phone, perfil, historico, respostas, source }), delay);
 }

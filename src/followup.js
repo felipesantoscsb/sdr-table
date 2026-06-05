@@ -6,9 +6,10 @@
 import { safeGet, safeSet, safeDel, safeKeys } from './redis.js';
 import { sendMessage } from './zapi/sender.js';
 
-const FOLLOWUP_DELAY_MS = 6 * 60 * 60 * 1000; // 6 horas
-const TRACK_TTL_SEC     = 7  * 24 * 60 * 60;   // 7 dias
-const CHECK_INTERVAL_MS = 60 * 1000;            // verificar a cada 1 min
+const FOLLOWUP_DELAY_MS  = 6 * 60 * 60 * 1000; // 6 horas
+const TRACK_TTL_SEC      = 7  * 24 * 60 * 60;   // 7 dias
+const PENDING_TTL_SEC    = 7  * 24 * 60 * 60;   // 7 dias
+const CHECK_INTERVAL_MS  = 60 * 1000;            // verificar a cada 1 min
 
 const BASE_URL = process.env.BASE_URL || 'https://estrutura-table-production.up.railway.app';
 
@@ -41,16 +42,28 @@ async function checkFollowUps() {
     if (compra) {
       console.log(`🛒 [quiz] Lead ${lead.nome} (${phone}) já comprou — cancelando follow-up`);
       await safeDel(key);
+      await safeDel(`pending_followup:${phone}`);
       continue;
     }
 
     // Já enviou follow-up?
     const jaEnviou = await safeGet(`followup:${phone}`);
-    if (jaEnviou) continue;
+    if (jaEnviou) {
+      await safeDel(`pending_followup:${phone}`);
+      continue;
+    }
 
     await sendFollowUp(lead, phone);
     await safeDel(key); // remove da fila após processar
   }
+}
+
+/**
+ * Envia o follow-up imediatamente.
+ * Chamado pelo cron e pela recovery de redeploy.
+ */
+export async function fireFollowUp(lead, phone) {
+  await sendFollowUp(lead, phone);
 }
 
 async function sendFollowUp(lead, phone) {
@@ -69,8 +82,22 @@ async function sendFollowUp(lead, phone) {
       `Quer conversar com ela? 👇\n${link}`;
 
     await sendMessage(phone, msg, { skipDelay: true });
+    await safeDel(`pending_followup:${phone}`);
     console.log(`📤 [quiz] Follow-up enviado para ${lead.nome} (${phone}) — track: ${uuid}`);
   } catch (err) {
     console.error(`❌ [quiz] Erro no follow-up de ${phone}:`, err.message);
   }
+}
+
+/**
+ * Salva pending_followup:{phone} no Redis.
+ * Chamado pelo quizHandler ao receber um lead.
+ */
+export async function savePendingFollowup(phone, leadData) {
+  const fire_at = (leadData.timestamp || Date.now()) + FOLLOWUP_DELAY_MS;
+  await safeSet(
+    `pending_followup:${phone}`,
+    JSON.stringify({ phone, leadData, scheduled_at: Date.now(), fire_at }),
+    'EX', PENDING_TTL_SEC
+  );
 }
