@@ -7,6 +7,13 @@ const COMPRA_TTL_SEC = 30 * 24 * 60 * 60; // 30 dias
 
 export async function handleTicto(req, res) {
   const body = req.body || {};
+
+  const token = req.headers['x-ticto-token'] || body.token;
+  if (token !== process.env.TICTO_POSTBACK_TOKEN) {
+    console.warn('⚠️ Ticto webhook com token inválido');
+    return res.status(200).json({ ok: true });
+  }
+
   const status = body.status;
 
   if (status !== 'approved' && status !== 'paid') {
