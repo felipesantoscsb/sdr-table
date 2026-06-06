@@ -94,10 +94,6 @@ export async function fireFollowUp(lead, phone) {
 }
 
 async function sendFollowUp(lead, phone) {
-  // PAUSADO — múltiplos disparos por lead, investigar.
-  // Correções aplicadas abaixo; reativar removendo apenas este return.
-  return;
-
   // ── Guards rápidos ──────────────────────────────────────────────────────────
   if (await safeGet(`compra:${phone}`)) {
     console.log(`🛒 [quiz] ${phone} já comprou — follow-up cancelado`);
