@@ -1,7 +1,7 @@
 // src/webhook/tictoHandler.js
 
 import { safeGet, safeSet, safeDel } from '../redis.js';
-import { normalizePhone } from '../conversation/store.js';
+import { normalizePhone, setHandedOff } from '../conversation/store.js';
 
 const COMPRA_TTL_SEC = 30 * 24 * 60 * 60; // 30 dias
 
@@ -50,6 +50,12 @@ export async function handleTicto(req, res) {
     if (trackUuid) {
       await safeDel(`track:${trackUuid}`);
       await safeDel(`followup_uuid:${phone}`);
+    }
+
+    // Se o agente SDR já foi ativado para esta lead, encerra (comprou)
+    const conv = await safeGet(`conv:${phone}`);
+    if (conv) {
+      await setHandedOff(phone);
     }
 
     console.log(`✅ Compra Ticto: ${nome} (${phone}) — ${produto}`);
