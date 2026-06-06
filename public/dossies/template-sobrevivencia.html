@@ -23,7 +23,7 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
   window._dossiePhoneHashed=phHashed;
   fbq('init','989971718548782',phHashed?{ph:phHashed}:{});
   const _dvId=crypto.randomUUID();
-  fbq('trackCustom','DossieView',{content_name:'dossie-sobrevivencia',currency:'BRL',value:97,ph:phHashed,eventID:_dvId});
+  fbq('trackCustom','DossieView',{currency:'BRL',value:97,ph:phHashed,eventID:_dvId});
   fbq('track','PageView');
   fetch('https://www.evelynliu.com.br/api/capi/dossie-view',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:phRaw,fbclid:fbclid,event_id:_dvId,perfil:'sobrevivencia',event_source_url:window.location.href})}).catch(()=>{});
 })();
