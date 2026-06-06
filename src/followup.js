@@ -5,6 +5,8 @@
 
 import { safeGet, safeSet, safeDel, safeKeys } from './redis.js';
 import { sendMessage } from './zapi/sender.js';
+import { generateFirstContact } from './ai/anthropic.js';
+import { activateLead, addMessage, enqueueMessage } from './conversation/store.js';
 
 const FOLLOWUP_DELAY_MS  = 6 * 60 * 60 * 1000; // 6 horas
 const TRACK_TTL_SEC      = 7  * 24 * 60 * 60;   // 7 dias
@@ -82,24 +84,51 @@ export async function fireFollowUp(lead, phone) {
 
 async function sendFollowUp(lead, phone) {
   try {
-    const uuid = crypto.randomUUID();
+    // Guard: já comprou → não ativa o agente
+    if (await safeGet(`compra:${phone}`)) {
+      console.log(`🛒 [quiz] ${phone} já comprou — follow-up cancelado`);
+      return;
+    }
+    // Guard: já enviado → evita reativação dupla
+    if (await safeGet(`followup:${phone}`)) {
+      console.log(`↩️  [quiz] follow-up de ${phone} já disparado — ignorando`);
+      return;
+    }
 
-    await safeSet(`track:${uuid}`, JSON.stringify({ ...lead, phone }), 'EX', TRACK_TTL_SEC);
-    await safeSet(`followup:${phone}`, '1', 'EX', TRACK_TTL_SEC);
-    // Índice phone→uuid para permitir limpeza do track na compra (Ticto)
-    await safeSet(`followup_uuid:${phone}`, uuid, 'EX', TRACK_TTL_SEC);
+    // Monta leadData compatível com generateFirstContact (mesmo formato do makeHandler)
+    const leadData = {
+      nome:        lead.nome || 'você',
+      phone,
+      whatsapp:    lead.whatsapp || phone,
+      whats:       lead.whatsapp || phone,
+      qualificacao: lead.perfil || lead.profileName || null,
+      perfil:      lead.perfil || lead.profileName || '',
+      historico:   lead.historico || '',
+      dores:       lead.respostas || '',
+      source:      lead.source || 'quiz-followup-6h',
+    };
 
-    const nome = lead.nome?.split(' ')[0] || 'Oi';
-    const link = `${BASE_URL}/track/${uuid}`;
+    const result = await generateFirstContact(leadData);
 
-    const msg =
-      `Oi ${nome}! 💚 Vi que você conheceu o protocolo da Evelyn mas ainda não deu o próximo passo.\n\n` +
-      `Às vezes o protocolo padrão não é o suficiente para o que você precisa — a Karina pode te ajudar a entender qual é o melhor caminho pra você.\n\n` +
-      `Quer conversar com ela? 👇\n${link}`;
+    leadData._monitorarDePerto = result.orientacao?.monitorarDePerto || false;
+    leadData._avisoNatalia = result.avisoNatalia || false;
 
-    await sendMessage(phone, msg, { skipDelay: true });
+    // Ativa o agente SDR para esta lead (conv:{phone})
+    await activateLead(phone, leadData);
+    await addMessage(phone, 'assistant', result.leadMessage);
+
+    // Marca como enviado antes de despachar a mensagem (evita reativação dupla)
+    await safeSet(`followup:${phone}`, '1', 'EX', PENDING_TTL_SEC);
+
+    if (dentroDoHorario()) {
+      await sendMessage(phone, result.leadMessage);
+    } else {
+      // Mesmo padrão do makeHandler: enfileira a 1ª mensagem para a abertura
+      await enqueueMessage(phone, `__PRIMEIRA_MENSAGEM__${result.leadMessage}`);
+    }
+
     await safeDel(`pending_followup:${phone}`);
-    console.log(`📤 [quiz] Follow-up enviado para ${lead.nome} (${phone}) — track: ${uuid}`);
+    console.log(`🤝 [quiz] Agente SDR iniciado via follow-up 6h para ${leadData.nome} (${phone})`);
   } catch (err) {
     console.error(`❌ [quiz] Erro no follow-up de ${phone}:`, err.message);
   }
