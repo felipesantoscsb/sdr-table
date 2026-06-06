@@ -80,7 +80,9 @@ function msAteAbertura() {
   const brasilia = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
   const hora = brasilia.getHours();
   const minuto = brasilia.getMinutes();
-  const minutosAte8h = (24 - hora + 8) * 60 - minuto;
+  const minutosAte8h = hora < 8
+    ? (8 - hora) * 60 - minuto
+    : (24 - hora + 8) * 60 - minuto;
   return minutosAte8h * 60 * 1000;
 }
 
