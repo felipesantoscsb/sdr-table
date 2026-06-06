@@ -5,7 +5,7 @@
 
 import { safeGet, safeSet, safeDel, safeKeys } from './redis.js';
 import { sendMessage } from './zapi/sender.js';
-import { generateFirstContact } from './ai/anthropic.js';
+import { generateFollowUpContact } from './ai/anthropic.js';
 import { activateLead, addMessage, enqueueMessage } from './conversation/store.js';
 
 const FOLLOWUP_DELAY_MS  = 6 * 60 * 60 * 1000; // 6 horas
@@ -128,7 +128,7 @@ async function sendFollowUp(lead, phone) {
       source:      lead.source || 'quiz-followup-6h',
     };
 
-    const result = await generateFirstContact(leadData);
+    const result = await generateFollowUpContact(leadData);
 
     leadData._monitorarDePerto = result.orientacao?.monitorarDePerto || false;
     leadData._avisoNatalia = result.avisoNatalia || false;

@@ -77,6 +77,77 @@ Responda APENAS em JSON válido. Sem texto antes ou depois. Sem blocos de códig
   }
 }
 
+export async function generateFollowUpContact(leadData) {
+  const {
+    nome, whatsapp, whats, temperatura, score,
+    oqueMaisPesa, dores, historico, saude,
+    comprometimento, maiorDificuldade, dificuldade, source,
+    qualificacao
+  } = leadData;
+
+  const scoreVal = qualificacao?.score ?? score ?? '?';
+  const tierVal = qualificacao?.tier || temperatura || '?';
+
+  const userPrompt = `
+🔁 Follow-up 6h — lead que fez o quiz e já RECEBEU o dossiê
+
+CONTEXTO IMPORTANTE: esta lead fez o quiz e, cerca de 15 minutos depois,
+já RECEBEU de você (no WhatsApp) um material/dossiê personalizado sobre o
+resultado dela. Agora, ~6h depois, você está retomando o contato. NÃO é um
+primeiro contato do zero — parta do dossiê que já foi enviado.
+
+Nome: ${nome}
+WhatsApp: ${whatsapp || whats}
+Temperatura: ${tierVal}
+Score: ${scoreVal}/10
+O que mais pesa: ${oqueMaisPesa || dores || 'não informado'}
+Histórico: ${Array.isArray(historico) ? historico.join(', ') : historico || 'não informado'}
+Saúde: ${Array.isArray(saude) ? saude.join(', ') : saude || 'não informado'}
+Comprometimento: ${comprometimento}/5
+Maior dificuldade: ${maiorDificuldade || dificuldade || 'não informado'}
+Source: ${source || 'não informado'}
+Data: ${new Date().toISOString()}
+
+REGRAS OBRIGATÓRIAS para o "leadMessage" desta retomada:
+- Curtíssima: no máximo 1 a 2 linhas.
+- Use o dossiê já enviado como gancho natural (ex: "você teve chance de ver o material que mandei?").
+- Tom leve, genuíno, sem nenhuma pressão.
+- NÃO entre na dor, NÃO faça diagnóstico, NÃO faça oferta.
+- Apenas abra espaço para a lead responder naturalmente.
+- O aprofundamento só vem DEPOIS que ela responder (nas próximas mensagens, não nesta).
+
+Responda APENAS em JSON válido. Sem texto antes ou depois. Sem blocos de código.`;
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 2500,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: 'user', content: userPrompt }],
+  });
+
+  const text = response.content[0].text;
+
+  try {
+    const clean = text.replace(/```json|```/g, '').trim();
+    return JSON.parse(clean);
+  } catch {
+    console.error('IA não retornou JSON válido:', text);
+    return {
+      tier: 'warm',
+      tierJustificativa: 'Erro ao processar.',
+      leadMessage: `Oi ${nome}! Aqui é a Karina, da equipe da Evelyn Liu. Você teve chance de ver o material que te mandei mais cedo?`,
+      sdrBriefing: 'Erro ao gerar briefing. Avalie manualmente.',
+      orientacao: { objetivo: '', tom: 'Leve', gancho: '', proximoPasso: '', monitorarDePerto: false },
+      followUp24h: `Oi ${nome}, passando para saber se recebeu minha mensagem.`,
+      followUp48h: `${nome}, ainda penso no que você compartilhou. Quando quiser conversar, estou aqui.`,
+      avisoNatalia: false,
+      handoff: false,
+      redflag: false,
+      redflagMotivo: '',
+    };
+  }
+}
+
 export async function generateReply(phone, newMessage, history, leadData) {
   const scoreVal = leadData.qualificacao?.score ?? leadData.score ?? '?';
   const tierVal = leadData.qualificacao?.tier || leadData.temperatura || '?';
