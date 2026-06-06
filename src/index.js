@@ -15,7 +15,7 @@ import { handleTrack } from './webhook/trackHandler.js';
 import { handleTicto } from './webhook/tictoHandler.js';
 import { getPhonesWithQueue } from './conversation/store.js';
 import { startFollowUpJob, fireFollowUp, dentroDoHorario } from './followup.js';
-import { safeKeys, safeGet } from './redis.js';
+import { safeKeys, safeGet, safeSet } from './redis.js';
 const redisGet = safeGet; // alias para clareza no recovery
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
