@@ -83,55 +83,8 @@ export async function fireFollowUp(lead, phone) {
 }
 
 async function sendFollowUp(lead, phone) {
-  try {
-    // Guard: já comprou → não ativa o agente
-    if (await safeGet(`compra:${phone}`)) {
-      console.log(`🛒 [quiz] ${phone} já comprou — follow-up cancelado`);
-      return;
-    }
-    // Guard: já enviado → evita reativação dupla
-    if (await safeGet(`followup:${phone}`)) {
-      console.log(`↩️  [quiz] follow-up de ${phone} já disparado — ignorando`);
-      return;
-    }
-
-    // Monta leadData compatível com generateFirstContact (mesmo formato do makeHandler)
-    const leadData = {
-      nome:        lead.nome || 'você',
-      phone,
-      whatsapp:    lead.whatsapp || phone,
-      whats:       lead.whatsapp || phone,
-      qualificacao: lead.perfil || lead.profileName || null,
-      perfil:      lead.perfil || lead.profileName || '',
-      historico:   lead.historico || '',
-      dores:       lead.respostas || '',
-      source:      lead.source || 'quiz-followup-6h',
-    };
-
-    const result = await generateFirstContact(leadData);
-
-    leadData._monitorarDePerto = result.orientacao?.monitorarDePerto || false;
-    leadData._avisoNatalia = result.avisoNatalia || false;
-
-    // Ativa o agente SDR para esta lead (conv:{phone})
-    await activateLead(phone, leadData);
-    await addMessage(phone, 'assistant', result.leadMessage);
-
-    // Marca como enviado antes de despachar a mensagem (evita reativação dupla)
-    await safeSet(`followup:${phone}`, '1', 'EX', PENDING_TTL_SEC);
-
-    if (dentroDoHorario()) {
-      await sendMessage(phone, result.leadMessage);
-    } else {
-      // Mesmo padrão do makeHandler: enfileira a 1ª mensagem para a abertura
-      await enqueueMessage(phone, `__PRIMEIRA_MENSAGEM__${result.leadMessage}`);
-    }
-
-    await safeDel(`pending_followup:${phone}`);
-    console.log(`🤝 [quiz] Agente SDR iniciado via follow-up 6h para ${leadData.nome} (${phone})`);
-  } catch (err) {
-    console.error(`❌ [quiz] Erro no follow-up de ${phone}:`, err.message);
-  }
+  // PAUSADO — múltiplos disparos por lead, investigar
+  return;
 }
 
 /**
