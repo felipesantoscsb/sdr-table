@@ -121,7 +121,7 @@ export async function handleDisparo(req, res) {
 
   res.status(200).json({ received: true, phone, perfil });
 
-  const delay = dentroDoHorario() ? DELAY_MS : msAteAbertura() + DELAY_MS;
+  const delay = DELAY_MS;
   const fire_at = Date.now() + delay;
 
   await safeSet(
@@ -189,7 +189,7 @@ export async function scheduleDisparo({ nome, phone, perfil: perfilRaw, historic
   const respostas = parseRespostas(respostasRaw);
   const source    = src || '';
 
-  const delay   = dentroDoHorario() ? DELAY_MS : msAteAbertura() + DELAY_MS;
+  const delay   = DELAY_MS;
   const fire_at = Date.now() + delay;
 
   await safeSet(
