@@ -27,7 +27,7 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
   const _dvId=crypto.randomUUID();
   fbq('trackCustom','DossieView',{currency:'BRL',value:97,ph:phHashed,eventID:_dvId});
   fbq('track','PageView');
-  fetch('https://www.evelynliu.com.br/api/capi/dossie-view',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:phRaw,fbclid:fbclid,event_id:_dvId,perfil:'restritiva',event_source_url:window.location.href})}).catch(()=>{});
+  fetch('https://www.evelynliu.com.br/api/capi/dossie-view',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:phRaw,fbclid:fbclid,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,event_id:_dvId,perfil:'restritiva',event_source_url:window.location.href})}).catch(()=>{});
 })();
 </script>
 </head>
