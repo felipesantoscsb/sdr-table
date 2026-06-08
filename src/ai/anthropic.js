@@ -333,7 +333,7 @@ Gere a personalização para essa lead. Responda APENAS em JSON válido, sem tex
   } catch {
     console.error('Erro ao gerar dossiê:', text);
     return {
-      whatsappMessage: `O seu resultado saiu, ${nome}. Preparei um material pensado pro seu perfil. Leitura leve, pra você ver com calma.\n\nSe algo aí ressoar, me conta.`,
+      whatsappMessage: `O seu resultado saiu, ${nome}.\nTem uma coisa específica que apareceu no seu perfil que eu quero que você veja.\nPreparei isso especialmente com base nas suas respostas:`,
       identificacaoParagrafo: '',
       sinaisPersonalizados: [],
     };

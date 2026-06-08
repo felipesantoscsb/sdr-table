@@ -15,6 +15,7 @@ const PENDING_DOSSIE_TTL = 24 * 60 * 60; // 24h — cobre fora-de-horário
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DOSSIES_DIR = join(__dirname, '../../public/planos');
 const DELAY_MS = 15 * 60 * 1000;
+const CTA_WHATSAPP = '👉 Ver meu resultado:';
 
 if (!existsSync(DOSSIES_DIR)) {
   mkdirSync(DOSSIES_DIR, { recursive: true });
@@ -156,7 +157,7 @@ export async function fireDossie({ nome, phone, perfil, historico, respostas, so
     writeFileSync(join(DOSSIES_DIR, filename), html, 'utf-8');
 
     const url = `https://raiz.evelynliu.com.br/d/${slug}`;
-    const mensagem = `${personalizado.whatsappMessage}\n${url}`;
+    const mensagem = `${personalizado.whatsappMessage}\n${CTA_WHATSAPP} ${url}`;
 
     const DOSSIE_TTL = 7 * 24 * 60 * 60; // 7 dias
 

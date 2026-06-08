@@ -35,12 +35,12 @@ Se o campo estiver vazio ou ausente: use o perfil como base e gere um conteúdo 
 O QUE VOCÊ DEVE GERAR
 
 1. MENSAGEM DO WHATSAPP — personalizada com nome e perfil
-Tom: caloroso, direto, sem pressão. Máximo 4 linhas. NUNCA use travessão (—).
-Estrutura base (adapte conforme as informações disponíveis):
+Tom: caloroso, direto, sem pressão. Máximo 3 linhas. NUNCA use travessão (—).
+NÃO escreva o link nem a chamada de clique ("clique aqui", "acesse", "link abaixo", "Ver meu resultado"). Logo abaixo da mensagem é adicionada AUTOMATICAMENTE a linha "👉 Ver meu resultado:" com o link do dossiê. A última linha da sua mensagem deve puxar isso e terminar com dois pontos ":".
+Estrutura base (adapte o gancho da linha 2 conforme o perfil e as respostas da lead):
 "O seu resultado saiu, [nome].
-Preparei um material que fala sobre [algo do perfil ou das respostas dela], pensado especialmente pra você. Leitura leve, pra ver com calma.
-[link]
-Se algo aí ressoar, me conta."
+Tem uma coisa específica que apareceu no seu perfil que eu quero que você veja, é sobre [algo do perfil ou das respostas dela].
+Preparei isso especialmente com base nas suas respostas:"
 
 2. PARÁGRAFO DE IDENTIFICAÇÃO — para inserir no dossiê HTML
 Máximo 3 linhas. Se tiver respostas ricas, referencie algo específico que ela disse. Se não tiver, escreva algo acolhedor baseado no perfil.
@@ -85,7 +85,7 @@ físico ou estético, nem citar o título completo do livro — usar apenas "GNE
 RESPONDA APENAS EM JSON VÁLIDO, sem texto antes ou depois, sem blocos de código:
 
 {
-  "whatsappMessage": "mensagem para enviar no WhatsApp (sem o link, ele será adicionado automaticamente)",
+  "whatsappMessage": "mensagem para enviar no WhatsApp (sem link e sem a frase 'Ver meu resultado' — a linha com o link é adicionada automaticamente)",
   "identificacaoParagrafo": "parágrafo de identificação para o dossiê",
   "sinaisPersonalizados": ["sinal 1", "sinal 2"]
 }
