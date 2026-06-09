@@ -89,12 +89,17 @@ export async function generateFollowUpContact(leadData) {
   const tierVal = qualificacao?.tier || temperatura || '?';
 
   const userPrompt = `
-🔁 Follow-up 6h — lead que fez o quiz e já RECEBEU o dossiê
+🔁 Follow-up 6h — retomada de contato com lead que fez o quiz
 
-CONTEXTO IMPORTANTE: esta lead fez o quiz e, cerca de 15 minutos depois,
-já RECEBEU de você (no WhatsApp) um material/dossiê personalizado sobre o
-resultado dela. Agora, ~6h depois, você está retomando o contato. NÃO é um
-primeiro contato do zero — parta do dossiê que já foi enviado.
+CONTEXTO: esta lead fez o quiz e, cerca de 15 minutos depois, recebeu um
+material com o resultado dela. Agora, ~6h depois, você está retomando o
+contato. NÃO é um primeiro contato do zero.
+
+ESTA MENSAGEM NÃO É SOBRE O DOSSIÊ. Não cobre leitura, não pergunte se ela
+viu o material, não fique em cima dele. O objetivo é abrir espaço para ela
+perceber que pode precisar de algo ALÉM de um protocolo: sinalizar, de forma
+leve e genuína, que existem outras formas de ajudá-la além do Protocolo Raiz e
+que você está por aqui caso ela queira conversar e se aprofundar no que acontece com ela.
 
 Nome: ${nome}
 WhatsApp: ${whatsapp || whats}
@@ -109,11 +114,12 @@ Source: ${source || 'não informado'}
 Data: ${new Date().toISOString()}
 
 REGRAS OBRIGATÓRIAS para o "leadMessage" desta retomada:
-- Curtíssima: no máximo 1 a 2 linhas.
-- Use o dossiê já enviado como gancho natural (ex: "você teve chance de ver o material que mandei?").
-- Tom leve, genuíno, sem nenhuma pressão.
-- NÃO entre na dor, NÃO faça diagnóstico, NÃO faça oferta.
-- Apenas abra espaço para a lead responder naturalmente.
+- Curta: no máximo 2 a 3 linhas.
+- NÃO faça a mensagem girar em torno do dossiê. No máximo cite de leve "o que te mandamos", sem cobrar leitura e sem que isso seja o foco.
+- O foco é o convite genuíno para conversar e se aprofundar, deixando claro que há outras formas de ajudá-la além do Protocolo Raiz.
+- Tom leve, genuíno, sem nenhuma pressão. NÃO entre na dor, NÃO faça diagnóstico, NÃO faça oferta.
+- Apenas abra espaço para a lead responder e dizer o que precisa.
+- Referência de tom (NÃO copie literalmente): "Não sei se você já teve tempo de abrir o que te mandamos, mas se quiser conversar e se aprofundar sobre o que acontece contigo, estou por aqui, temos outras formas de te ajudar além do Protocolo Raiz."
 - O aprofundamento só vem DEPOIS que ela responder (nas próximas mensagens, não nesta).
 
 Responda APENAS em JSON válido. Sem texto antes ou depois. Sem blocos de código.`;
@@ -135,7 +141,7 @@ Responda APENAS em JSON válido. Sem texto antes ou depois. Sem blocos de códig
     return {
       tier: 'warm',
       tierJustificativa: 'Erro ao processar.',
-      leadMessage: `Oi ${nome}! Aqui é a Karina, da equipe da Evelyn Liu. Você teve chance de ver o material que te mandei mais cedo?`,
+      leadMessage: `Oi ${nome}, aqui é a Karina, da equipe da Evelyn Liu. Não sei se você já teve tempo de abrir o que te mandamos, mas se quiser conversar e se aprofundar sobre o que acontece contigo, estou por aqui. Temos outras formas de te ajudar além do Protocolo Raiz.`,
       sdrBriefing: 'Erro ao gerar briefing. Avalie manualmente.',
       orientacao: { objetivo: '', tom: 'Leve', gancho: '', proximoPasso: '', monitorarDePerto: false },
       followUp24h: `Oi ${nome}, passando para saber se recebeu minha mensagem.`,
@@ -333,7 +339,7 @@ Gere a personalização para essa lead. Responda APENAS em JSON válido, sem tex
   } catch {
     console.error('Erro ao gerar dossiê:', text);
     return {
-      whatsappMessage: `O seu resultado saiu, ${nome}.\nTem uma coisa específica que apareceu no seu perfil que eu quero que você veja.\nPreparei isso especialmente com base nas suas respostas:`,
+      whatsappMessage: `Seu resultado saiu, ${nome}.\nTem uma coisa específica que apareceu no seu perfil.\nGeramos esse dossiê com base nas suas respostas pra te ajudar a enxergar isso:`,
       identificacaoParagrafo: '',
       sinaisPersonalizados: [],
     };

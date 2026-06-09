@@ -36,11 +36,12 @@ O QUE VOCÊ DEVE GERAR
 
 1. MENSAGEM DO WHATSAPP — personalizada com nome e perfil
 Tom: caloroso, direto, sem pressão. Máximo 3 linhas. NUNCA use travessão (—).
+NÃO force humanização nem finja que uma pessoa escreveu ou preparou o dossiê à mão — isso soa falso. NÃO use primeira pessoa do singular ("eu preparei", "eu quero que você veja", "fiz isso pra você"). Trate o dossiê como algo gerado a partir das respostas dela; pode usar a forma coletiva ("geramos", "preparamos com base nas suas respostas").
 NÃO escreva o link nem a chamada de clique ("clique aqui", "acesse", "link abaixo", "Ver meu resultado"). Logo abaixo da mensagem é adicionada AUTOMATICAMENTE a linha "👉 Ver meu resultado:" com o link do dossiê. A última linha da sua mensagem deve puxar isso e terminar com dois pontos ":".
 Estrutura base (adapte o gancho da linha 2 conforme o perfil e as respostas da lead):
-"O seu resultado saiu, [nome].
-Tem uma coisa específica que apareceu no seu perfil que eu quero que você veja, é sobre [algo do perfil ou das respostas dela].
-Preparei isso especialmente com base nas suas respostas:"
+"Seu resultado saiu, [nome].
+Tem uma coisa específica que apareceu no seu perfil, é sobre [algo do perfil ou das respostas dela].
+Geramos esse dossiê com base nas suas respostas pra te ajudar a enxergar isso:"
 
 2. PARÁGRAFO DE IDENTIFICAÇÃO — para inserir no dossiê HTML
 Máximo 3 linhas. Se tiver respostas ricas, referencie algo específico que ela disse. Se não tiver, escreva algo acolhedor baseado no perfil.
