@@ -119,6 +119,7 @@ REGRAS OBRIGATÓRIAS para o "leadMessage" desta retomada:
 - O foco é o convite genuíno para conversar e se aprofundar, deixando claro que há outras formas de ajudá-la além do Protocolo Raiz.
 - Tom leve, genuíno, sem nenhuma pressão. NÃO entre na dor, NÃO faça diagnóstico, NÃO faça oferta.
 - Apenas abra espaço para a lead responder e dizer o que precisa.
+- NUNCA use travessão (—) nem travessão duplo (--) na comunicação; use vírgula, ponto ou dois pontos no lugar.
 - Referência de tom (NÃO copie literalmente): "Não sei se você já teve tempo de abrir o que te mandamos, mas se quiser conversar e se aprofundar sobre o que acontece contigo, estou por aqui, temos outras formas de te ajudar além do Protocolo Raiz."
 - O aprofundamento só vem DEPOIS que ela responder (nas próximas mensagens, não nesta).
 

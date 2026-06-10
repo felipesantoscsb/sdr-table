@@ -70,6 +70,7 @@ PROIBIDO — nunca usar estas palavras ou expressões, em nenhuma circunstância
 - Qualquer claim físico mensurável: "X kg", "quilos", "metabolismo acelerado", "corpo definido"
 - Termos clínicos ou médicos: "diagnóstico", "tratamento", "terapia", "transtorno", "patologia", "doença"
 - Linguagem prescritiva: "você precisa", "é necessário fazer", "a solução é"
+- Travessão (—) ou travessão duplo (--) em QUALQUER texto gerado (mensagem do WhatsApp, parágrafo de identificação e sinais); use vírgula, ponto ou dois pontos no lugar
 
 USAR SEMPRE:
 - "autoconhecimento", "processo de autoconhecimento"
