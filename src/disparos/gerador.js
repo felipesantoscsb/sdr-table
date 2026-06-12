@@ -12,10 +12,17 @@ function loadTemplate(perfil) {
   return readFileSync(join(__dirname, `../../public/dossies/template-${nome}.html`), 'utf-8');
 }
 
-export function gerarDossie(perfil, nomeLead, identificacaoParagrafo, sinaisPersonalizados) {
+// Parágrafo de tier — espelha lógica da página de resultado do quiz
+const TIER_PARAGRAPHS = {
+  hot: 'Você já investiu antes em soluções sérias. Sabe que não é falta de comprometimento. O que faltou foi trabalhar a camada emocional, que nenhuma das outras abordagens tocou.',
+  warm: 'Você já tentou algumas coisas e sabe que força de vontade sozinha não resolve. O Protocolo Raiz começa exatamente onde as outras abordagens pararam.',
+  cold: 'Este é um primeiro passo concreto: sem restrições, sem julgamento, sem mais uma lista de regras. Só o trabalho real com o que está por trás do seu padrão com a comida.',
+};
+
+export function gerarDossie(perfil, nomeLead, tier, identificacaoParagrafo, sinaisPersonalizados) {
   let html = loadTemplate(perfil);
 
-  console.log(`🎨 Injetando nome: "${nomeLead}" no perfil ${perfil}`);
+  console.log(`🎨 Injetando nome: "${nomeLead}" | tier: ${tier || 'n/a'} | perfil: ${perfil}`);
 
   // 1. Injeta o nome da lead acima do tc-hero-title no hero
   const heroTitleSelector = /<h1 class="tc-hero-title">/;
@@ -29,28 +36,39 @@ export function gerarDossie(perfil, nomeLead, identificacaoParagrafo, sinaisPers
     console.warn(`⚠️ Seletor tc-hero-title não encontrado no template do perfil ${perfil}`);
   }
 
-  // 2. Injeta parágrafo personalizado após tc-abertura-sub
+  // 2. Injeta parágrafo personalizado + parágrafo de tier após tc-abertura-sub
+  const tierTexto = TIER_PARAGRAPHS[tier] || TIER_PARAGRAPHS.cold;
+  const tierHtml = `\n    <p style="font-family:'Jost',sans-serif;font-size:0.88rem;color:#7a7a7a;line-height:1.75;max-width:480px;margin:1rem auto 0;text-align:center;">${tierTexto}</p>`;
+
   if (identificacaoParagrafo) {
     html = html.replace(
       /(<p class="tc-abertura-sub">[\s\S]*?<\/p>)/,
-      `$1\n    <p style="font-family:'Jost',sans-serif;font-size:0.92rem;color:#3D4A35;line-height:1.8;max-width:520px;margin:1.5rem auto 0;padding:1rem 1.25rem;background:#EDE5D8;border-radius:8px;font-style:italic;text-align:left;">${identificacaoParagrafo}</p>`
+      `$1\n    <p style="font-family:'Jost',sans-serif;font-size:0.92rem;color:#3D4A35;line-height:1.8;max-width:520px;margin:1.5rem auto 0;padding:1rem 1.25rem;background:#EDE5D8;border-radius:8px;font-style:italic;text-align:left;">${identificacaoParagrafo}</p>${tierHtml}`
+    );
+  } else {
+    // Sem identificacaoParagrafo: injeta só o tier após tc-abertura-sub
+    html = html.replace(
+      /(<p class="tc-abertura-sub">[\s\S]*?<\/p>)/,
+      `$1${tierHtml}`
     );
   }
 
-  // 3. Substitui os dois primeiros tc-signal-item pelos personalizados
-  if (sinaisPersonalizados?.length >= 2) {
+  // 3. Substitui até 4 tc-signal-item pelos personalizados (fallback para estáticos)
+  const sinais = Array.isArray(sinaisPersonalizados) ? sinaisPersonalizados : [];
+  if (sinais.length >= 1) {
     let count = 0;
     html = html.replace(
       /<div class="tc-signal-item"><div class="tc-signal-dot"><\/div><span>([^<]+)<\/span><\/div>/g,
       (match) => {
-        if (count < 2 && sinaisPersonalizados[count]) {
-          const sinal = sinaisPersonalizados[count];
+        if (count < sinais.length && sinais[count]) {
+          const sinal = sinais[count];
           count++;
           return `<div class="tc-signal-item"><div class="tc-signal-dot"></div><span>${sinal}</span></div>`;
         }
         return match;
       }
     );
+    console.log(`✅ ${count} sinais personalizados injetados`);
   }
 
   return html;

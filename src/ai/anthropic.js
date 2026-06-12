@@ -308,7 +308,7 @@ export async function generateDossie(leadData) {
     'utf-8'
   );
 
-  const { nome, perfil, historico, respostas, source } = leadData;
+  const { nome, perfil, historico, respostas, source, tier } = leadData;
 
   const respostasTexto = Array.isArray(respostas)
     ? respostas.map(r => `${r.pergunta}: ${r.resposta}`).join('\n')
@@ -317,6 +317,7 @@ export async function generateDossie(leadData) {
   const prompt = `
 Lead: ${nome}
 Perfil: ${perfil}
+Tier (qualificação): ${tier || 'não informado'} (hot = já investiu muito antes; warm = tentou algumas coisas; cold = primeiro passo)
 Histórico de tentativas: ${historico || 'não informado'}
 Source: ${source || 'não informado'}
 

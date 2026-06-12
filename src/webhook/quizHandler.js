@@ -29,7 +29,8 @@ function normalizeLead(body) {
     historico:        body['historico']      || body['Histórico'] || body['Historico'] || '',
     respostas,
     source:           body['source']         || body['Source']    || 'quiz',
-    lead_event_id:    body['lead_event_id']  || body['lid']       || null, // join key para URL do dossiê
+    lead_event_id:    body['lead_event_id']  || body['lid']       || null,
+    tier:             body['tier']           || null, // hot/warm/cold
   };
 }
 
@@ -79,5 +80,6 @@ export async function handleQuizLead(req, res) {
     respostas:      leadData.respostas,
     source:         leadData.source,
     lead_event_id:  leadData.lead_event_id,
+    tier:           leadData.tier,
   });
 }

@@ -76,7 +76,7 @@ app.get('/d/:slug', async (req, res) => {
     DOSSIE_PERFIL_MAP[meta.perfil] || 'emocional'
   ];
   try {
-    html = gerarDossie(perfilLetra, meta.nome || 'você', '', []);
+    html = gerarDossie(perfilLetra, meta.nome || 'você', null, '', []);
     await safeSet(`dossie_html:${slug}`, html, 'EX', 7 * 24 * 60 * 60); // recacheia
     console.log(`[/d/:slug] ${slug} → regenerado via fallback (${meta.perfil})`);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

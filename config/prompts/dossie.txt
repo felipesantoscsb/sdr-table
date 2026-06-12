@@ -18,6 +18,7 @@ CAMPOS DO PAYLOAD
 Os dados chegam com os seguintes campos:
 - nome: nome da lead
 - perfil / profileName: letra do perfil (E, R, S, A) ou nome por extenso
+- tier: qualificação da lead (hot = já investiu muito antes; warm = tentou algumas coisas; cold = primeiro passo)
 - historico: contexto histórico da lead
 - "Perguntas e respostas": string com as perguntas e respostas do quiz concatenadas — esta é a PRINCIPAL fonte de personalização
 - source: origem do lead
@@ -49,11 +50,17 @@ Tom: acolhedor, sem julgamento.
 Exemplo com respostas: "[Nome], quando você disse que [algo das respostas], fez todo sentido. Esse padrão tem nome e tem saída."
 Exemplo sem respostas: "[Nome], o que você está carregando tem nome. E tem saída."
 
-3. DOIS SINAIS PERSONALIZADOS — para substituir 2 das boas práticas do dossiê
-Cada sinal é uma frase curta (máx 12 palavras) que reflete algo do perfil ou das respostas dela.
-Se tiver respostas detalhadas: use algo específico que ela mencionou.
-Se não tiver: gere dois sinais genéricos mas fiéis ao perfil.
-Devem soar como reconhecimento, não como julgamento.
+3. SINAIS PERSONALIZADOS — para substituir os sinais estáticos do dossiê
+Gere entre 3 e 4 sinais que ecoem as respostas REAIS da lead como espelho.
+Cada sinal é uma frase curta (máx 14 palavras) redigida na segunda pessoa, reformulando algo que ela disse com empatia.
+
+GUARDRAILS INEGOCIÁVEIS para os sinais:
+- Nunca citar a resposta literal entre aspas — reformule sempre
+- Nunca inferir diagnóstico clínico ou psicológico
+- Nunca usar palavras da lista PROIBIDO (ver abaixo)
+- Se as respostas não chegarem (campo vazio ou "não informado"): gere sinais genéricos fiéis ao perfil — NÃO force referências que não existem
+- Tom de reconhecimento, nunca de julgamento
+- Exemplos de reformulação: se ela disse "Cansaço: já tentei tantas vezes", escreva "Você já tentou muitas vezes — e cada tentativa deixou uma marca"
 
 ---
 
@@ -89,5 +96,5 @@ RESPONDA APENAS EM JSON VÁLIDO, sem texto antes ou depois, sem blocos de códig
 {
   "whatsappMessage": "mensagem para enviar no WhatsApp (sem link e sem a frase 'Ver meu resultado' — a linha com o link é adicionada automaticamente)",
   "identificacaoParagrafo": "parágrafo de identificação para o dossiê",
-  "sinaisPersonalizados": ["sinal 1", "sinal 2"]
+  "sinaisPersonalizados": ["sinal 1", "sinal 2", "sinal 3", "sinal 4 (opcional)"]
 }

@@ -105,8 +105,9 @@ export async function handleDisparo(req, res) {
   // Make envia as respostas no campo "Perguntas e respostas" (com espaço e acento)
   const respostasRaw = body['Perguntas e respostas'] || body.respostas || body['perguntas_e_respostas'] || '';
   const respostas  = parseRespostas(respostasRaw);
-  const source     = body.source || '';
+  const source        = body.source || '';
   const lead_event_id = body.lead_event_id || body.lid || null;
+  const tier          = body.tier || null;
 
   if (!phone) {
     return res.status(400).json({ error: 'WhatsApp obrigatório' });
@@ -128,7 +129,7 @@ export async function handleDisparo(req, res) {
 
   await safeSet(
     `pending_dossie:${phone}`,
-    JSON.stringify({ phone, leadData: { nome, perfil, historico, respostas, source, lead_event_id }, scheduled_at: Date.now(), fire_at }),
+    JSON.stringify({ phone, leadData: { nome, perfil, historico, respostas, source, lead_event_id, tier }, scheduled_at: Date.now(), fire_at }),
     'EX', PENDING_DOSSIE_TTL
   );
 
@@ -137,20 +138,20 @@ export async function handleDisparo(req, res) {
   } else {
     console.log(`⏰ Fora do horário — disparo para ${nome} em ${Math.round(delay / 60000)} minutos`);
   }
-  setTimeout(() => fireDossie({ nome, phone, perfil, historico, respostas, source, lead_event_id }), delay);
+  setTimeout(() => fireDossie({ nome, phone, perfil, historico, respostas, source, lead_event_id, tier }), delay);
 }
 
 /**
  * Envia o dossiê imediatamente (sem agendamento).
  * Chamado pelo setTimeout e pela recovery de redeploy.
  */
-export async function fireDossie({ nome, phone, perfil, historico, respostas, source, lead_event_id }) {
+export async function fireDossie({ nome, phone, perfil, historico, respostas, source, lead_event_id, tier }) {
   try {
-    console.log(`🤖 Gerando dossiê para ${nome} (perfil ${perfil}, ${respostas.length} respostas)...`);
-    const personalizado = await generateDossie({ nome, perfil, historico, respostas, source });
+    console.log(`🤖 Gerando dossiê para ${nome} (perfil ${perfil}, tier ${tier || 'n/a'}, ${respostas.length} respostas)...`);
+    const personalizado = await generateDossie({ nome, perfil, historico, respostas, source, tier });
     console.log(`✅ Conteúdo gerado — mensagem: "${personalizado.whatsappMessage?.slice(0, 60)}..."`);
 
-    const html = gerarDossie(perfil, nome, personalizado.identificacaoParagrafo, personalizado.sinaisPersonalizados);
+    const html = gerarDossie(perfil, nome, tier, personalizado.identificacaoParagrafo, personalizado.sinaisPersonalizados);
     console.log(`📄 HTML gerado (${html.length} chars)`);
 
     const slug = `${slugify(nome)}-${Date.now()}`;
@@ -186,7 +187,7 @@ export async function fireDossie({ nome, phone, perfil, historico, respostas, so
  * Agenda envio de dossiê para um lead sem passar por req/res.
  * Usado internamente pelo fluxo de quiz.
  */
-export async function scheduleDisparo({ nome, phone, perfil: perfilRaw, historico: historicoRaw, respostas: respostasRaw, source: src, lead_event_id }) {
+export async function scheduleDisparo({ nome, phone, perfil: perfilRaw, historico: historicoRaw, respostas: respostasRaw, source: src, lead_event_id, tier }) {
   const perfil    = resolverPerfil(perfilRaw || '');
   const historico = Array.isArray(historicoRaw) ? historicoRaw.join(', ') : (historicoRaw || '');
   const respostas = parseRespostas(respostasRaw);
@@ -197,7 +198,7 @@ export async function scheduleDisparo({ nome, phone, perfil: perfilRaw, historic
 
   await safeSet(
     `pending_dossie:${phone}`,
-    JSON.stringify({ phone, leadData: { nome, perfil, historico, respostas, source, lead_event_id }, scheduled_at: Date.now(), fire_at }),
+    JSON.stringify({ phone, leadData: { nome, perfil, historico, respostas, source, lead_event_id, tier }, scheduled_at: Date.now(), fire_at }),
     'EX', PENDING_DOSSIE_TTL
   );
 
@@ -206,5 +207,5 @@ export async function scheduleDisparo({ nome, phone, perfil: perfilRaw, historic
   } else {
     console.log(`⏰ [quiz] Fora do horário — disparo para ${nome} em ${Math.round(delay / 60000)} minutos`);
   }
-  setTimeout(() => fireDossie({ nome, phone, perfil, historico, respostas, source, lead_event_id }), delay);
+  setTimeout(() => fireDossie({ nome, phone, perfil, historico, respostas, source, lead_event_id, tier }), delay);
 }
