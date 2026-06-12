@@ -171,6 +171,13 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
     .tc-cta-section{padding:1.75rem 1rem}
     .tc-preco-ancora{padding:1rem 1.25rem}
   }
+
+  /* CICLO DO PADRÃO */
+  .tc-ciclo{margin:1.5rem 0}
+  .tc-ciclo-step{margin-bottom:1rem;padding-left:1rem;border-left:2px solid rgba(185,112,64,0.18)}
+  .tc-ciclo-label{font-family:'Jost',sans-serif;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:#B97040;font-weight:500;display:block;margin-bottom:.3rem}
+  .tc-ciclo-text{font-family:'Jost',sans-serif;font-size:0.875rem;font-weight:300;line-height:1.8;color:#3a3a3a;margin:0}
+  .tc-ciclo-close{font-family:'Cormorant',serif;font-size:1rem;font-style:italic;color:#3D4A35;line-height:1.7;margin-top:1.25rem;padding:.75rem 1rem;background:rgba(61,74,53,.04);border-radius:6px;border-left:2px solid rgba(185,112,64,.3)}
 </style>
 
 <div class="tc-page">
@@ -204,7 +211,33 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
       <div class="tc-signal-item"><div class="tc-signal-dot"></div><span>Come mais quando está ansiosa, triste ou sozinha</span></div>
     </div>
 
-    <!-- EXERCÍCIO — conceito + pergunta, sem processo completo -->
+
+    <!-- COMO O SEU PADRÃO FUNCIONA POR DENTRO -->
+    <div class="tc-line-dec"></div>
+    <span class="tc-section-label">Como o seu padrão funciona por dentro</span>
+
+    <div class="tc-ciclo">
+      <div class="tc-ciclo-step"><span class="tc-ciclo-label">Gatilho</span><p class="tc-ciclo-text">Uma emoção sem destino: ansiedade, solidão, cansaço, frustração. Algo que aconteceu, ou que você está esperando que aconteça. O corpo sente antes de você nomear.</p></div>
+      <div class="tc-ciclo-step"><span class="tc-ciclo-label">Comportamento</span><p class="tc-ciclo-text">A comida aparece. Não como escolha consciente, como alívio automático. O sistema nervoso aprendeu que ela funciona.</p></div>
+      <div class="tc-ciclo-step"><span class="tc-ciclo-label">Alívio momentâneo</span><p class="tc-ciclo-text">Por alguns minutos, o aperto diminui. A emoção some ou fica em segundo plano. Isso é real, e é exatamente por isso o padrão se instala.</p></div>
+      <div class="tc-ciclo-step"><span class="tc-ciclo-label">Culpa</span><p class="tc-ciclo-text">Vem a autocrítica: "de novo", "não tenho jeito", a sensação de que você falhou com você mesma. E junto dela, a promessa de recomeçar amanhã.</p></div>
+      <div class="tc-ciclo-step"><span class="tc-ciclo-label">Reforço do ciclo</span><p class="tc-ciclo-text">Cada repetição fortalece o caminho: emoção, comida. Com o tempo, qualquer desconforto mínimo ativa o mesmo circuito.</p></div>
+      <p class="tc-ciclo-close">Força de vontade não quebra esse ciclo porque ela ataca o comportamento, o comer. O ciclo se alimenta do que vem antes: a emoção sem outro destino. Trabalhar a raiz é dar a essa emoção um lugar diferente para ir.</p>
+    </div>
+
+    <!-- DEPOIMENTO — antes do exercício -->
+    <div class="tc-social-proof" style="margin-bottom:0">
+      <div class="tc-depo-card">
+        <p class="tc-depo-text">&#8220;Eu comia toda noite depois que meu filho dormia. Achei que era fraqueza. No Protocolo entendi que era a única forma que eu tinha de respirar no dia. Quando aprendi outras formas de respirar, o padrão mudou sozinho.&#8221;</p>
+        <div class="tc-depo-author">
+          <div class="tc-depo-dot"></div>
+          <span class="tc-depo-name">Fernanda R.</span>
+          <span class="tc-depo-perfil">· Comedora Emocional</span>
+        </div>
+      </div>
+    </div>
+
+        <!-- EXERCÍCIO — conceito + pergunta, sem processo completo -->
     <span class="tc-section-label">Uma prévia do que te espera</span>
     <h2 class="tc-headline">O exercício que <em>mais transforma</em> quem tem o seu padrão</h2>
 
@@ -231,15 +264,6 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
       <span class="tc-social-label">Quem já percorreu esse caminho</span>
 
       <div class="tc-depo-card">
-        <p class="tc-depo-text">&#8220;Eu comia toda noite depois que meu filho dormia. Achei que era fraqueza. No Protocolo entendi que era a única forma que eu tinha de respirar no dia. Quando aprendi outras formas de respirar, o padrão mudou sozinho.&#8221;</p>
-        <div class="tc-depo-author">
-          <div class="tc-depo-dot"></div>
-          <span class="tc-depo-name">Fernanda R.</span>
-          <span class="tc-depo-perfil">· Comedora Emocional</span>
-        </div>
-      </div>
-
-      <div class="tc-depo-card">
         <p class="tc-depo-text">&#8220;Já tinha feito terapia, já tinha tentado dieta. O que mudou foi entender o gatilho emocional antes da comida — não depois. Esse exercício específico virou um divisor de águas pra mim.&#8221;</p>
         <div class="tc-depo-author">
           <div class="tc-depo-dot"></div>
@@ -250,7 +274,7 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
     </div>
 
     <!-- URGÊNCIA EMOCIONAL -->
-    <p class="tc-urgencia">O ciclo não para de esperar — ele só muda quando você decide intervir nele.</p>
+    <p class="tc-urgencia">{{URGENCIA_TEXTO}}</p>
 
     <!-- CTA PRINCIPAL -->
     <div class="tc-cta-section" style="margin-top:1.5rem;">

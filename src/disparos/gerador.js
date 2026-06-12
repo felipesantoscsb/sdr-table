@@ -71,5 +71,15 @@ export function gerarDossie(perfil, nomeLead, tier, identificacaoParagrafo, sina
     console.log(`✅ ${count} sinais personalizados injetados`);
   }
 
+  // 4. Substitui placeholder de urgência (configurável via config futura)
+  // Default: texto original de cada perfil mantido no template como referência
+  const urgenciaDefault = {
+    E: 'O ciclo não para de esperar, ele só muda quando você decide intervir nele.',
+    R: 'A próxima segunda-feira vai parecer um recomeço. Mas o ciclo não conhece segundas-feiras.',
+    S: 'Você não vai ter mais tempo amanhã do que tem hoje. Mas pode ter mais clareza.',
+    A: 'A desconexão não resolve com o tempo. Com o tempo, ela se aprofunda.',
+  };
+  html = html.replace('{{URGENCIA_TEXTO}}', urgenciaDefault[perfil] || urgenciaDefault.E);
+
   return html;
 }
