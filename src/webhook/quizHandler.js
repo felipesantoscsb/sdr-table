@@ -23,12 +23,13 @@ function normalizeLead(body) {
     || '';
 
   return {
-    nome:             body['nome']      || body['Nome']      || 'Lead',
-    whatsapp:         body['whatsapp']  || body['WhatsApp']  || body['Whatsapp'] || body['whats'] || '',
-    perfil:           body['perfil']    || body['profile']   || body['profileName'] || body['qualificacao']?.tier || '',
-    historico:        body['historico'] || body['Histórico'] || body['Historico'] || '',
+    nome:             body['nome']           || body['Nome']      || 'Lead',
+    whatsapp:         body['whatsapp']       || body['WhatsApp']  || body['Whatsapp'] || body['whats'] || '',
+    perfil:           body['perfil']         || body['profile']   || body['profileName'] || body['qualificacao']?.tier || '',
+    historico:        body['historico']      || body['Histórico'] || body['Historico'] || '',
     respostas,
-    source:           body['source']    || body['Source']    || 'quiz',
+    source:           body['source']         || body['Source']    || 'quiz',
+    lead_event_id:    body['lead_event_id']  || body['lid']       || null, // join key para URL do dossiê
   };
 }
 
@@ -71,11 +72,12 @@ export async function handleQuizLead(req, res) {
 
   // Dispara dossiê personalizado em 15 min (sem ativar o agente SDR)
   await scheduleDisparo({
-    nome:      leadData.nome,
+    nome:           leadData.nome,
     phone,
-    perfil:    leadData.perfil,
-    historico: leadData.historico,
-    respostas: leadData.respostas,
-    source:    leadData.source,
+    perfil:         leadData.perfil,
+    historico:      leadData.historico,
+    respostas:      leadData.respostas,
+    source:         leadData.source,
+    lead_event_id:  leadData.lead_event_id,
   });
 }

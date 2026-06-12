@@ -106,6 +106,7 @@ export async function handleDisparo(req, res) {
   const respostasRaw = body['Perguntas e respostas'] || body.respostas || body['perguntas_e_respostas'] || '';
   const respostas  = parseRespostas(respostasRaw);
   const source     = body.source || '';
+  const lead_event_id = body.lead_event_id || body.lid || null;
 
   if (!phone) {
     return res.status(400).json({ error: 'WhatsApp obrigatório' });
@@ -127,7 +128,7 @@ export async function handleDisparo(req, res) {
 
   await safeSet(
     `pending_dossie:${phone}`,
-    JSON.stringify({ phone, leadData: { nome, perfil, historico, respostas, source }, scheduled_at: Date.now(), fire_at }),
+    JSON.stringify({ phone, leadData: { nome, perfil, historico, respostas, source, lead_event_id }, scheduled_at: Date.now(), fire_at }),
     'EX', PENDING_DOSSIE_TTL
   );
 
@@ -136,14 +137,14 @@ export async function handleDisparo(req, res) {
   } else {
     console.log(`⏰ Fora do horário — disparo para ${nome} em ${Math.round(delay / 60000)} minutos`);
   }
-  setTimeout(() => fireDossie({ nome, phone, perfil, historico, respostas, source }), delay);
+  setTimeout(() => fireDossie({ nome, phone, perfil, historico, respostas, source, lead_event_id }), delay);
 }
 
 /**
  * Envia o dossiê imediatamente (sem agendamento).
  * Chamado pelo setTimeout e pela recovery de redeploy.
  */
-export async function fireDossie({ nome, phone, perfil, historico, respostas, source }) {
+export async function fireDossie({ nome, phone, perfil, historico, respostas, source, lead_event_id }) {
   try {
     console.log(`🤖 Gerando dossiê para ${nome} (perfil ${perfil}, ${respostas.length} respostas)...`);
     const personalizado = await generateDossie({ nome, perfil, historico, respostas, source });
@@ -156,7 +157,8 @@ export async function fireDossie({ nome, phone, perfil, historico, respostas, so
     const filename = `${slug}.html`;
     writeFileSync(join(DOSSIES_DIR, filename), html, 'utf-8');
 
-    const url = `https://raiz.evelynliu.com.br/d/${slug}`;
+    // URL com lid quando disponível — habilita identidade server-side no dossiê
+    const url = `https://raiz.evelynliu.com.br/d/${slug}${lead_event_id ? '?lid=' + encodeURIComponent(lead_event_id) : ''}`;
     const mensagem = `${personalizado.whatsappMessage}\n${CTA_WHATSAPP} ${url}`;
 
     const DOSSIE_TTL = 7 * 24 * 60 * 60; // 7 dias
@@ -164,10 +166,10 @@ export async function fireDossie({ nome, phone, perfil, historico, respostas, so
     // HTML completo no Redis — sobrevive a redeploys (disco do Railway é efêmero)
     await safeSet(`dossie_html:${slug}`, html, 'EX', DOSSIE_TTL);
 
-    // Metadados (inclui nome para permitir regeneração de fallback)
+    // Metadados (inclui lead_event_id para debug e futuros lookups)
     await safeSet(
       `dossie:${slug}`,
-      JSON.stringify({ phone, perfil, nome, slug, url }),
+      JSON.stringify({ phone, perfil, nome, slug, url, lead_event_id: lead_event_id || null }),
       'EX', DOSSIE_TTL
     );
 
@@ -184,7 +186,7 @@ export async function fireDossie({ nome, phone, perfil, historico, respostas, so
  * Agenda envio de dossiê para um lead sem passar por req/res.
  * Usado internamente pelo fluxo de quiz.
  */
-export async function scheduleDisparo({ nome, phone, perfil: perfilRaw, historico: historicoRaw, respostas: respostasRaw, source: src }) {
+export async function scheduleDisparo({ nome, phone, perfil: perfilRaw, historico: historicoRaw, respostas: respostasRaw, source: src, lead_event_id }) {
   const perfil    = resolverPerfil(perfilRaw || '');
   const historico = Array.isArray(historicoRaw) ? historicoRaw.join(', ') : (historicoRaw || '');
   const respostas = parseRespostas(respostasRaw);
@@ -195,7 +197,7 @@ export async function scheduleDisparo({ nome, phone, perfil: perfilRaw, historic
 
   await safeSet(
     `pending_dossie:${phone}`,
-    JSON.stringify({ phone, leadData: { nome, perfil, historico, respostas, source }, scheduled_at: Date.now(), fire_at }),
+    JSON.stringify({ phone, leadData: { nome, perfil, historico, respostas, source, lead_event_id }, scheduled_at: Date.now(), fire_at }),
     'EX', PENDING_DOSSIE_TTL
   );
 
@@ -204,5 +206,5 @@ export async function scheduleDisparo({ nome, phone, perfil: perfilRaw, historic
   } else {
     console.log(`⏰ [quiz] Fora do horário — disparo para ${nome} em ${Math.round(delay / 60000)} minutos`);
   }
-  setTimeout(() => fireDossie({ nome, phone, perfil, historico, respostas, source }), delay);
+  setTimeout(() => fireDossie({ nome, phone, perfil, historico, respostas, source, lead_event_id }), delay);
 }

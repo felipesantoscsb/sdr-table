@@ -16,18 +16,29 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
 (async function(){
   function getCookie(n){const m=document.cookie.match(new RegExp('(^| )'+n+'=([^;]+)'));return m?m[2]:null;}
   async function sha256(str){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(str).toLowerCase().trim()));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
-  const phRaw=new URLSearchParams(window.location.search).get('ph')||getCookie('tc_ph')||null;
-  const phHashed=phRaw?await sha256(phRaw):null;
-  const fbclid=new URLSearchParams(window.location.search).get('fbclid')||null;
-  window._dossiePhone=phRaw;
-  window._dossiePhoneHashed=phHashed;
+  const _p=new URLSearchParams(window.location.search);
+  const _lid=_p.get('lid')||null;
+  const _phRaw=_p.get('ph')||getCookie('tc_ph')||null;
+  const _fbclid=_p.get('fbclid')||null;
+  window._dossieLid=_lid;
+  window._dossiePhone=_phRaw;
+  window._dossiePhoneHashed=null;
   window._dossieFbp=getCookie('_fbp')||null;
   window._dossieFbc=getCookie('_fbc')||null;
-  fbq('init','989971718548782',phHashed?{ph:phHashed}:{});
+  window._dossieCtx=null;
+  let _am={};
+  if(_lid){
+    try{
+      const _r=await fetch('https://www.evelynliu.com.br/api/lead-context?lid='+encodeURIComponent(_lid),{signal:AbortSignal.timeout(3000)});
+      if(_r.ok){const _c=await _r.json();window._dossieCtx=_c;_am={em:_c.em_hash,ph:_c.ph_hash,fn:_c.fn_hash,external_id:_c.external_id};}
+    }catch(e){}
+  }
+  if(!window._dossieCtx&&_phRaw){window._dossiePhoneHashed=await sha256(_phRaw);_am={ph:window._dossiePhoneHashed};}
+  fbq('init','989971718548782',_am);
   const _dvId=crypto.randomUUID();
-  fbq('trackCustom','DossieView',{currency:'BRL',value:97,ph:phHashed,eventID:_dvId});
+  fbq('trackCustom','DossieView',{eventID:_dvId,perfil:'desconectada'});
   fbq('track','PageView');
-  fetch('https://www.evelynliu.com.br/api/capi/dossie-view',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:phRaw,fbclid:fbclid,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,event_id:_dvId,perfil:'desconectada',event_source_url:window.location.href})}).catch(()=>{});
+  fetch('https://www.evelynliu.com.br/api/capi/dossie-view',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:window._dossieCtx?null:_phRaw,lid:_lid,fbclid:_fbclid,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,event_id:_dvId,perfil:'desconectada',event_source_url:window.location.href})}).catch(()=>{});
 })();
 </script>
 </head>
@@ -154,7 +165,7 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
 
     <div class="tc-mid-cta">
       <p class="tc-mid-cta-text">Já fez sentido pra você?</p>
-      <a href="https://checkout.ticto.app/O9E1D1B1F" class="tc-mid-cta-link" onclick="var _icId=crypto.randomUUID();fbq('trackCustom','DossieCTA',{currency:'BRL',value:97,ph:window._dossiePhoneHashed});fbq('track','InitiateCheckout',{content_name:'InitiateCheckout_Dossie',currency:'BRL',value:97,ph:window._dossiePhoneHashed,eventID:_icId});fetch('https://www.evelynliu.com.br/api/capi/initiate-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:window._dossiePhone,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,content_name:'InitiateCheckout_Dossie',event_id:_icId,perfil:'desconectada',event_source_url:window.location.href})}).catch(()=>{});">Acessar o Protocolo Raiz →</a>
+      <a href="https://checkout.ticto.app/O9E1D1B1F" class="tc-mid-cta-link" onclick="var _icId=crypto.randomUUID();var _ph=window._dossieCtx&&window._dossieCtx.ph_hash||window._dossiePhoneHashed;fbq('trackCustom','DossieCTA',{eventID:_icId,perfil:'desconectada'});fbq('track','InitiateCheckout',{content_name:'InitiateCheckout_Dossie',currency:'BRL',value:97,ph:_ph,eventID:_icId});fetch('https://www.evelynliu.com.br/api/capi/initiate-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:window._dossieCtx?null:window._dossiePhone,lid:window._dossieLid||undefined,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,content_name:'InitiateCheckout_Dossie',event_id:_icId,perfil:'desconectada',event_source_url:window.location.href})}).catch(()=>{});">Acessar o Protocolo Raiz →</a>
     </div>
 
     <div class="tc-social-proof">
@@ -219,7 +230,7 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
 
       <p class="tc-garantia">Se em 7 dias você não sentir que está no caminho certo, <strong>devolvemos 100% — sem pergunta, sem burocracia.</strong></p>
 
-      <a href="https://checkout.ticto.app/O9E1D1B1F" class="tc-cta-btn" onclick="var _icId=crypto.randomUUID();fbq('trackCustom','DossieCTA',{currency:'BRL',value:97,ph:window._dossiePhoneHashed});fbq('track','InitiateCheckout',{content_name:'InitiateCheckout_Dossie',currency:'BRL',value:97,ph:window._dossiePhoneHashed,eventID:_icId});fetch('https://www.evelynliu.com.br/api/capi/initiate-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:window._dossiePhone,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,content_name:'InitiateCheckout_Dossie',event_id:_icId,perfil:'desconectada',event_source_url:window.location.href})}).catch(()=>{});">Quero o Protocolo Raiz →</a>
+      <a href="https://checkout.ticto.app/O9E1D1B1F" class="tc-cta-btn" onclick="var _icId=crypto.randomUUID();var _ph=window._dossieCtx&&window._dossieCtx.ph_hash||window._dossiePhoneHashed;fbq('trackCustom','DossieCTA',{eventID:_icId,perfil:'desconectada'});fbq('track','InitiateCheckout',{content_name:'InitiateCheckout_Dossie',currency:'BRL',value:97,ph:_ph,eventID:_icId});fetch('https://www.evelynliu.com.br/api/capi/initiate-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:window._dossieCtx?null:window._dossiePhone,lid:window._dossieLid||undefined,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,content_name:'InitiateCheckout_Dossie',event_id:_icId,perfil:'desconectada',event_source_url:window.location.href})}).catch(()=>{});">Quero o Protocolo Raiz →</a>
     </div>
 
     <div class="tc-footer">Evelyn Liu · Protocolo Raiz</div>
