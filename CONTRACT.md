@@ -70,3 +70,26 @@ Mesma lógica de enriquecimento via `lid`.
 - **DossieView server-side:** mantido em `/api/capi/dossie-view` para telemetria interna. Quando a Fase 2 (ViewContent nativo) for implementada, o servidor **não deve** repassar DossieView à Meta — apenas logar/registrar internamente.
 - **PII no link:** o `lid` é um token opaco (UUID). Nenhum dado pessoal (email, telefone, nome) é exposto na URL do dossiê.
 - **Retrocompatibilidade `?ph=`:** links antigos com `?ph={phone}` continuam funcionando indefinidamente até remoção explícita autorizada.
+
+---
+
+## Fase 2 — Decisões registradas
+
+### ViewContent nativo (2.1)
+- Browser: `fbq('track','ViewContent',{content_name:'Dossie', content_category:'{perfil}', eventID:_vcId})`
+- CAPI server-side: POST `/api/capi` com `event_name:'ViewContent'`, `content_category`, `pageview_event_id`, `lid`
+- O servidor usa `lid` para enriquecimento via Redis (sem email/phone no browser)
+- `content_category` = perfil do dossiê (ex: 'emocional') — não é dado de saúde no contexto de segmentação de conteúdo
+
+### DossieView (2.2)
+- Browser-only: `fbq('trackCustom','DossieView',{eventID, perfil})` — sem value/currency/ph
+- Fetch para `/api/capi/dossie-view` mantido para **telemetria interna** (log no servidor)
+- Servidor NÃO repassa DossieView à Meta — ViewContent já envia o sinal com EMQ completo
+
+### InitiateCheckout (2.3)
+- `content_category:'{perfil}'` adicionado browser + CAPI
+- `position:'mid'` / `position:'final'` distinguem os dois CTAs no Events Manager
+
+### Checkout URL (2.5 — parcial)
+- `src={lid}` adicionado via script pós-DOM (sem PII na URL)
+- Pré-preenchimento de email/telefone: pendente autorização (PII interpolado no HTML pelo agente)

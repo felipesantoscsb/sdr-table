@@ -36,10 +36,28 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
   if(!window._dossieCtx&&_phRaw){window._dossiePhoneHashed=await sha256(_phRaw);_am={ph:window._dossiePhoneHashed};}
   fbq('init','989971718548782',_am);
   const _dvId=crypto.randomUUID();
+  const _pvId=crypto.randomUUID();
+  const _vcId=crypto.randomUUID();
   fbq('trackCustom','DossieView',{eventID:_dvId,perfil:'sobrevivencia'});
-  fbq('track','PageView');
+  fbq('track','PageView',{eventID:_pvId});
+  fbq('track','ViewContent',{content_name:'Dossie',content_category:'sobrevivencia',eventID:_vcId});
   fetch('https://www.evelynliu.com.br/api/capi/dossie-view',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:window._dossieCtx?null:_phRaw,lid:_lid,fbclid:_fbclid,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,event_id:_dvId,perfil:'sobrevivencia',event_source_url:window.location.href})}).catch(()=>{});
+  fetch('https://www.evelynliu.com.br/api/capi',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event_name:'ViewContent',content_name:'Dossie',content_category:'sobrevivencia',lead_event_id:_vcId,pageview_event_id:_pvId,lid:_lid,fbc:window._dossieFbc||null,fbp:window._dossieFbp||null,event_source_url:window.location.href})}).catch(()=>{});
 })();
+</script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-14817731667"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-14817731667');
+</script>
+<script type="text/javascript">
+  (function(c,l,a,r,i,t,y){
+    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+  })(window, document, "clarity", "script", "wmg9jtptjq");
 </script>
 </head>
 <body style="margin:0;padding:0;">
@@ -165,7 +183,7 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
 
     <div class="tc-mid-cta">
       <p class="tc-mid-cta-text">Já fez sentido pra você?</p>
-      <a href="https://checkout.ticto.app/O9E1D1B1F" class="tc-mid-cta-link" onclick="var _icId=crypto.randomUUID();var _ph=window._dossieCtx&&window._dossieCtx.ph_hash||window._dossiePhoneHashed;fbq('trackCustom','DossieCTA',{eventID:_icId,perfil:'sobrevivencia'});fbq('track','InitiateCheckout',{content_name:'InitiateCheckout_Dossie',currency:'BRL',value:97,ph:_ph,eventID:_icId});fetch('https://www.evelynliu.com.br/api/capi/initiate-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:window._dossieCtx?null:window._dossiePhone,lid:window._dossieLid||undefined,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,content_name:'InitiateCheckout_Dossie',event_id:_icId,perfil:'sobrevivencia',event_source_url:window.location.href})}).catch(()=>{});">Acessar o Protocolo Raiz →</a>
+      <a href="https://checkout.ticto.app/O9E1D1B1F" class="tc-mid-cta-link" onclick="var _icId=crypto.randomUUID();var _ph=window._dossieCtx&&window._dossieCtx.ph_hash||window._dossiePhoneHashed;fbq('trackCustom','DossieCTA',{eventID:_icId,perfil:'sobrevivencia',position:'mid'});fbq('track','InitiateCheckout',{content_name:'InitiateCheckout_Dossie',content_category:'sobrevivencia',currency:'BRL',value:97,ph:_ph,eventID:_icId});fetch('https://www.evelynliu.com.br/api/capi/initiate-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:window._dossieCtx?null:window._dossiePhone,lid:window._dossieLid||undefined,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,content_name:'InitiateCheckout_Dossie',content_category:'sobrevivencia',position:'mid',event_id:_icId,perfil:'sobrevivencia',event_source_url:window.location.href})}).catch(()=>{});">Acessar o Protocolo Raiz →</a>
     </div>
 
     <div class="tc-social-proof">
@@ -230,12 +248,20 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
 
       <p class="tc-garantia">Se em 7 dias você não sentir que está no caminho certo, <strong>devolvemos 100% — sem pergunta, sem burocracia.</strong></p>
 
-      <a href="https://checkout.ticto.app/O9E1D1B1F" class="tc-cta-btn" onclick="var _icId=crypto.randomUUID();var _ph=window._dossieCtx&&window._dossieCtx.ph_hash||window._dossiePhoneHashed;fbq('trackCustom','DossieCTA',{eventID:_icId,perfil:'sobrevivencia'});fbq('track','InitiateCheckout',{content_name:'InitiateCheckout_Dossie',currency:'BRL',value:97,ph:_ph,eventID:_icId});fetch('https://www.evelynliu.com.br/api/capi/initiate-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:window._dossieCtx?null:window._dossiePhone,lid:window._dossieLid||undefined,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,content_name:'InitiateCheckout_Dossie',event_id:_icId,perfil:'sobrevivencia',event_source_url:window.location.href})}).catch(()=>{});">Quero o Protocolo Raiz →</a>
+      <a href="https://checkout.ticto.app/O9E1D1B1F" class="tc-cta-btn" onclick="var _icId=crypto.randomUUID();var _ph=window._dossieCtx&&window._dossieCtx.ph_hash||window._dossiePhoneHashed;fbq('trackCustom','DossieCTA',{eventID:_icId,perfil:'sobrevivencia',position:'final'});fbq('track','InitiateCheckout',{content_name:'InitiateCheckout_Dossie',content_category:'sobrevivencia',currency:'BRL',value:97,ph:_ph,eventID:_icId});fetch('https://www.evelynliu.com.br/api/capi/initiate-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:window._dossieCtx?null:window._dossiePhone,lid:window._dossieLid||undefined,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,content_name:'InitiateCheckout_Dossie',content_category:'sobrevivencia',position:'final',event_id:_icId,perfil:'sobrevivencia',event_source_url:window.location.href})}).catch(()=>{});">Quero o Protocolo Raiz →</a>
     </div>
 
     <div class="tc-footer">Evelyn Liu · Protocolo Raiz</div>
   </div>
 </div>
 
+<script>
+(function(){
+  if(!window._dossieLid) return;
+  document.querySelectorAll('a[href*="checkout.ticto.app"]').forEach(function(a){
+    try{var u=new URL(a.href);u.searchParams.set('src',window._dossieLid);a.href=u.toString();}catch(e){}
+  });
+})();
+</script>
 </body>
 </html>
