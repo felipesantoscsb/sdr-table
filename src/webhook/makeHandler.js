@@ -35,12 +35,21 @@ function normalizeLead(body) {
 }
 
 async function processLead(leadData, phone) {
+  // Persiste a lead no Redis ANTES da IA — garante que o CRM (hub-table)
+  // sincronize a lead mesmo se a geração de mensagem / Z-API falhar.
+  try {
+    await activateLead(phone, leadData);
+  } catch (e) {
+    console.error(`⚠️ Falha ao persistir lead ${leadData.nome} no Redis:`, e.message);
+  }
+
   try {
     const result = await generateFirstContact(leadData);
 
     leadData._monitorarDePerto = result.orientacao?.monitorarDePerto || false;
     leadData._avisoNatalia = result.avisoNatalia || false;
 
+    // Reatualiza com os campos derivados da IA (idempotente)
     await activateLead(phone, leadData);
     await addMessage(phone, 'assistant', result.leadMessage);
 
