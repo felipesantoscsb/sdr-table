@@ -7,7 +7,7 @@
 import { safeSet } from '../redis.js';
 import { normalizePhone } from '../conversation/store.js';
 import { scheduleDisparo } from '../disparos/handler.js';
-import { savePendingFollowup } from '../followup.js';
+import { savePendingFollowup, FOLLOWUP_6H_ENABLED } from '../followup.js';
 
 function normalizeLead(body) {
   // "Perguntas e respostas" vem como string formatada do aquisicao-table:
@@ -61,12 +61,12 @@ export async function handleQuizLead(req, res) {
   Respostas:  ${leadData.respostas ? `"${String(leadData.respostas).slice(0, 100)}..."` : 'vazio'}
   Source:     ${leadData.source}`);
 
-  // Salva com namespace separado "quiz:" (NÃO interfere em "lead:")
   const entry = { ...leadData, phone, timestamp: Date.now() };
-  await safeSet(`quiz:${phone}`, JSON.stringify(entry), 'EX', QUIZ_TTL_SEC);
-
-  // Registra pending_followup para sobreviver a redeploys
-  await savePendingFollowup(phone, entry);
+  if (FOLLOWUP_6H_ENABLED) {
+    // Salva com namespace separado "quiz:" (NÃO interfere em "lead:")
+    await safeSet(`quiz:${phone}`, JSON.stringify(entry), 'EX', QUIZ_TTL_SEC);
+    await savePendingFollowup(phone, entry);
+  }
 
   // Responde imediatamente — processamento é async
   res.status(200).json({ received: true, phone });

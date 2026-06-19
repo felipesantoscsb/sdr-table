@@ -14,7 +14,13 @@ import { gerarDossie } from './disparos/gerador.js';
 import { handleTrack } from './webhook/trackHandler.js';
 import { handleTicto } from './webhook/tictoHandler.js';
 import { getPhonesWithQueue } from './conversation/store.js';
-import { startFollowUpJob, fireFollowUp, dentroDoHorario } from './followup.js';
+import {
+  startFollowUpJob,
+  fireFollowUp,
+  dentroDoHorario,
+  clearPendingFollowUps,
+  FOLLOWUP_6H_ENABLED,
+} from './followup.js';
 import { safeKeys, safeGet, safeSet } from './redis.js';
 const redisGet = safeGet; // alias para clareza no recovery
 
@@ -123,39 +129,41 @@ async function recoverPendingTimers() {
   }
 
   // ── Follow-ups pendentes ───────────────────────────────────────────────────
-  const followupKeys = await safeKeys('pending_followup:*');
-  for (const key of followupKeys) {
-    const raw = await safeGet(key);
-    if (!raw) continue;
-    let pending;
-    try { pending = JSON.parse(raw); } catch { continue; }
+  if (FOLLOWUP_6H_ENABLED) {
+    const followupKeys = await safeKeys('pending_followup:*');
+    for (const key of followupKeys) {
+      const raw = await safeGet(key);
+      if (!raw) continue;
+      let pending;
+      try { pending = JSON.parse(raw); } catch { continue; }
 
-    const { phone, leadData, fire_at } = pending;
-    if (!phone || !leadData) continue;
+      const { phone, leadData, fire_at } = pending;
+      if (!phone || !leadData) continue;
 
-    // Se já enviou o follow-up, ignora
-    const jaEnviou = await redisGet(`followup:${phone}`);
-    if (jaEnviou) continue;
+      // Se já enviou o follow-up, ignora
+      const jaEnviou = await redisGet(`followup:${phone}`);
+      if (jaEnviou) continue;
 
-    // Se já comprou, ignora
-    const comprou = await redisGet(`compra:${phone}`);
-    if (comprou) continue;
+      // Se já comprou, ignora
+      const comprou = await redisGet(`compra:${phone}`);
+      if (comprou) continue;
 
-    const remaining = fire_at - now;
+      const remaining = fire_at - now;
 
-    // Dispara só dentro do horário comercial. Se fora (ou atrasado de
-    // madrugada), o cron checkFollowUps reprocessa quiz:* no próximo
-    // horário válido — evita follow-up de madrugada.
-    const fire = () => { if (dentroDoHorario()) fireFollowUp(leadData, phone); };
+      // Dispara só dentro do horário comercial. Se fora (ou atrasado de
+      // madrugada), o cron checkFollowUps reprocessa quiz:* no próximo
+      // horário válido — evita follow-up de madrugada.
+      const fire = () => { if (dentroDoHorario()) fireFollowUp(leadData, phone); };
 
-    if (remaining <= 0) {
-      console.log(`⚡ [recovery] Follow-up para ${leadData.nome} (${phone}) — atrasado; cron reprocessa no horário válido`);
-      setTimeout(fire, 0);
-    } else {
-      console.log(`⏳ [recovery] Follow-up para ${leadData.nome} (${phone}) — reagendado em ${Math.round(remaining / 60000)}min`);
-      setTimeout(fire, remaining);
+      if (remaining <= 0) {
+        console.log(`⚡ [recovery] Follow-up para ${leadData.nome} (${phone}) — atrasado; cron reprocessa no horário válido`);
+        setTimeout(fire, 0);
+      } else {
+        console.log(`⏳ [recovery] Follow-up para ${leadData.nome} (${phone}) — reagendado em ${Math.round(remaining / 60000)}min`);
+        setTimeout(fire, remaining);
+      }
+      followupsRecovered++;
     }
-    followupsRecovered++;
   }
 
   if (dossiesRecovered + followupsRecovered > 0) {
@@ -165,7 +173,7 @@ async function recoverPendingTimers() {
   }
 }
 
-app.listen(config.port, () => {
+app.listen(config.port, async () => {
   console.log(`
 🚀 SDR WhatsApp rodando na porta ${config.port}
 
@@ -182,7 +190,11 @@ Endpoints:
   GET  /fotos/:file      → Fotos da equipe
   `);
 
-  startFollowUpJob();
+  if (FOLLOWUP_6H_ENABLED) {
+    startFollowUpJob();
+  } else {
+    await clearPendingFollowUps();
+  }
   recoverPendingTimers().catch(err => console.error('❌ Erro na recovery de timers:', err.message));
 
   setInterval(async () => {

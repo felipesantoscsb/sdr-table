@@ -14,6 +14,7 @@ const PENDING_TTL_SEC    = 7  * 24 * 60 * 60;   // 7 dias
 const CHECK_INTERVAL_MS  = 60 * 1000;            // verificar a cada 1 min
 
 const BASE_URL = process.env.BASE_URL || 'https://estrutura-table-production.up.railway.app';
+export const FOLLOWUP_6H_ENABLED = process.env.FOLLOWUP_6H_ENABLED === 'true';
 
 // Horário comercial (America/Sao_Paulo): seg–sex 8h–21h, sáb–dom 8h–17h
 export function dentroDoHorario() {
@@ -26,8 +27,44 @@ export function dentroDoHorario() {
 }
 
 export function startFollowUpJob() {
+  if (!FOLLOWUP_6H_ENABLED) {
+    console.log('🛑 Job de follow-up 6h desativado');
+    return;
+  }
   console.log('⏰ Job de follow-up 6h ativado');
   setInterval(checkFollowUps, CHECK_INTERVAL_MS);
+}
+
+/**
+ * Remove filas antigas para impedir que leads acumuladas sejam disparadas
+ * caso o recurso seja reativado no futuro.
+ */
+export async function clearPendingFollowUps() {
+  const keys = [
+    ...await safeKeys('pending_followup:*'),
+    ...await safeKeys('followup_processing:*'),
+    ...await safeKeys('quiz:*'),
+  ];
+  for (const key of new Set(keys)) await safeDel(key);
+
+  // Remove também primeiras mensagens já geradas fora do horário comercial.
+  let queuedRemoved = 0;
+  for (const queueKey of await safeKeys('queue:*')) {
+    const phone = queueKey.replace('queue:', '');
+    const rawConv = await safeGet(`conv:${phone}`);
+    if (!rawConv) continue;
+    let conv;
+    try { conv = JSON.parse(rawConv); } catch { continue; }
+    if (conv.leadData?.source !== 'quiz-followup-6h') continue;
+    await safeDel(queueKey);
+    await safeDel(`conv:${phone}`);
+    await safeDel(`lastseen:${phone}`);
+    queuedRemoved++;
+  }
+
+  console.log(
+    `🧹 Follow-up 6h desativado — ${new Set(keys).size} fila(s) pendente(s) e ${queuedRemoved} mensagem(ns) agendada(s) removida(s)`
+  );
 }
 
 // Evita ticks sobrepostos do cron (não-reentrante)
@@ -88,6 +125,7 @@ async function checkFollowUps() {
  * Chamado pelo cron e pela recovery de redeploy.
  */
 export async function fireFollowUp(lead, phone) {
+  if (!FOLLOWUP_6H_ENABLED) return;
   // Revalida o guard no MOMENTO do disparo (não só no boot da recovery)
   if (await safeGet(`followup:${phone}`)) return;
   await sendFollowUp(lead, phone);
@@ -159,6 +197,7 @@ async function sendFollowUp(lead, phone) {
  * Chamado pelo quizHandler ao receber um lead.
  */
 export async function savePendingFollowup(phone, leadData) {
+  if (!FOLLOWUP_6H_ENABLED) return;
   const fire_at = (leadData.timestamp || Date.now()) + FOLLOWUP_DELAY_MS;
   await safeSet(
     `pending_followup:${phone}`,
