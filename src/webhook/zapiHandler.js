@@ -7,6 +7,7 @@ import { sendMessage, notifySDR, notifySDRHandoff, notifySDRRedflag, notifySDRTu
 import { handlePlanoCommand } from '../planos/handler.js';
 import { getQuizPreData } from './quizPreHandler.js';
 import { activateLead } from '../conversation/store.js';
+import { migrarParaPreConsulta } from '../hub/client.js';
 import { config } from '../../config/index.js';
 
 // Frase que ativa leads pós-quiz via WhatsApp direto
@@ -206,6 +207,10 @@ async function processAggregatedMessages(phone, combinedMessage) {
       await setHandedOff(phone);
       const handoffBriefing = await generateHandoffBriefing(leadData, await getHistory(phone), result.handoffTurno);
       await notifySDRHandoff(leadData, result.handoffTurno, handoffBriefing);
+      // Migra o card de captação para pré-consulta / "A Agendar" no Hub (igual ao Protocolo Raiz).
+      // Fire-and-forget: nunca deve bloquear nem quebrar o handoff para a Karina.
+      migrarParaPreConsulta({ leadData, phone, turno: result.handoffTurno, briefing: handoffBriefing })
+        .catch(err => console.error('[hub] erro ao migrar card no handoff:', err.message));
       return;
     }
 
