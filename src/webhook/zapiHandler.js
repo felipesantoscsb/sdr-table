@@ -8,6 +8,7 @@ import { handlePlanoCommand } from '../planos/handler.js';
 import { getQuizPreData } from './quizPreHandler.js';
 import { activateLead } from '../conversation/store.js';
 import { migrarParaPreConsulta } from '../hub/client.js';
+import { getParticipant, handleCampanhaReply } from '../campanha/handler.js';
 import { config } from '../../config/index.js';
 
 // Frase que ativa leads pós-quiz via WhatsApp direto
@@ -52,6 +53,16 @@ export async function handleZapiMessage(req, res) {
         return;
       }
       await handleSdrConsultivo(trimmed);
+      return;
+    }
+
+    // Resposta a campanha sazonal (ex.: Lista VIP Evelyn Liu) tem prioridade:
+    // interrompe qualquer automação para este número e nunca cai no fluxo do
+    // agente SDR nem na ativação por frase de quiz.
+    const campanhaParticipant = await getParticipant(phone);
+    if (campanhaParticipant) {
+      console.log(`🤍 Resposta de participante de campanha: ${phone}`);
+      await handleCampanhaReply(phone, messageText, campanhaParticipant);
       return;
     }
 

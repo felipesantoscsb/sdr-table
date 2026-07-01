@@ -13,6 +13,7 @@ import { handleDisparo, fireDossie } from './disparos/handler.js';
 import { gerarDossie } from './disparos/gerador.js';
 import { handleTrack } from './webhook/trackHandler.js';
 import { handleTicto } from './webhook/tictoHandler.js';
+import { handleCampanhaRegistro } from './campanha/handler.js';
 import { getPhonesWithQueue } from './conversation/store.js';
 import {
   startFollowUpJob,
@@ -42,6 +43,7 @@ app.post('/webhook/zapi', handleZapiMessage);
 app.post('/webhook/quiz-pre', handleQuizPre);
 app.post('/webhook/disparo', handleDisparo);
 app.post('/webhook/ticto', handleTicto);
+app.post('/webhook/campanha-registro', handleCampanhaRegistro);
 
 // Track link (follow-up)
 app.get('/track/:uuid', handleTrack);
@@ -184,6 +186,7 @@ Endpoints:
   POST /webhook/quiz-pre → Armazena dados do quiz
   POST /webhook/disparo  → Dispara dossiê personalizado
   POST /webhook/ticto    → Webhook de compras da Ticto
+  POST /webhook/campanha-registro → Registra participante de campanha sazonal (Hub)
   GET  /track/:uuid      → Link de rastreio do follow-up
   GET  /health           → Status do servidor
   GET  /:file            → Propostas e dossiês gerados

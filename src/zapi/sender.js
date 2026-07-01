@@ -127,6 +127,71 @@ export async function notifySDRTurnLimit(leadData, handoffBriefing) {
   await sendToAll(lines.join('\n'), { skipDelay: true });
 }
 
+// ── Campanha sazonal (Lista VIP Evelyn Liu) ──────────────────────────────────
+
+function campanhaCleanPhone(participant) {
+  return String(participant?.phone || participant?.telefone || '').replace(/\D/g, '');
+}
+
+// Handoff principal: lead respondeu positivamente. Se a campanha já encerrou
+// (closed), vira aviso interno SEM prometer disponibilidade.
+export async function notifyKarinaCampanhaHandoff(participant, text, { closed } = {}) {
+  const nome = participant?.nome || 'Lead';
+  const phone = campanhaCleanPhone(participant);
+  const link = phone ? `🔗 https://wa.me/${phone}` : '';
+
+  if (closed) {
+    const lines = [
+      `⚠️ *LISTA VIP EVELYN LIU — RESPOSTA APÓS ENCERRAMENTO*`,
+      ``,
+      `👤 *${nome}*`,
+      `💬 Resposta: "${String(text || '').slice(0, 280)}"`,
+      ``,
+      `As 3 vagas já foram preenchidas. *Não prometa disponibilidade.*`,
+      `Se fizer sentido, registre como lista de espera para uma próxima abertura.`,
+      link,
+    ].filter(Boolean);
+    await sendToAll(lines.join('\n'), { skipDelay: true });
+    return;
+  }
+
+  const lines = [
+    `🤍 *Lead - Lista VIP Evelyn Liu*`,
+    ``,
+    `👤 *${nome}*`,
+    `💬 Resposta: "${String(text || '').slice(0, 280)}"`,
+    ``,
+    `• Lead respondeu positivamente à campanha sazonal.`,
+    `• Já recebeu a proposta da primeira consulta com a Evelyn: *R$ 600*, abatido em um plano de acompanhamento caso decida seguir.`,
+    `• A Evelyn define o plano ideal durante a própria consulta.`,
+    `• Demonstrou interesse mesmo conhecendo o investimento.`,
+    `• Abertura pontual (sem trava automática de vagas) — negocie normalmente mesmo além das 3 primeiras respostas.`,
+    ``,
+    `*Próxima ação:* entrar em contato pelo WhatsApp para apresentar os horários e conduzir o agendamento.`,
+    link,
+  ].filter(Boolean);
+
+  await sendToAll(lines.join('\n'), { skipDelay: true });
+}
+
+// Aviso leve: o participante respondeu algo que não foi classificado como
+// interesse positivo. Não move o card; só garante que nada se perca.
+export async function notifyKarinaCampanhaResposta(participant, text, { positive } = {}) {
+  const nome = participant?.nome || 'Lead';
+  const phone = campanhaCleanPhone(participant);
+  const link = phone ? `🔗 https://wa.me/${phone}` : '';
+  const lines = [
+    `📩 *Lista VIP Evelyn Liu — resposta recebida*`,
+    ``,
+    `👤 *${nome}*`,
+    `💬 "${String(text || '').slice(0, 280)}"`,
+    ``,
+    `Sem sinal claro de interesse — avalie se vale responder manualmente.`,
+    link,
+  ].filter(Boolean);
+  await sendToAll(lines.join('\n'), { skipDelay: true });
+}
+
 export async function notifyError(phone, errorMessage) {
   const lines = [
     `⚠️ *ERRO AO RESPONDER LEAD*`,

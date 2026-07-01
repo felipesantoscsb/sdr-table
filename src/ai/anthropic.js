@@ -347,3 +347,52 @@ Gere a personalização para essa lead. Responda APENAS em JSON válido, sem tex
     };
   }
 }
+
+/**
+ * Classifica a resposta de um lead a uma campanha de reativação como interesse
+ * POSITIVO (quer prioridade/saber mais) ou não. A intenção prevalece sobre a
+ * palavra exata — "faz sentido", "me chama", "tenho interesse na Evelyn" contam
+ * como positivo mesmo sem dizer "quero". Heurística de palavra cobre o caminho
+ * feliz sem custo; a IA resolve os ambíguos.
+ */
+const POSITIVE_HINTS = [
+  'quero', 'sim', 'tenho interesse', 'interesse', 'faz sentido', 'gostaria',
+  'me chama', 'pode chamar', 'saber mais', 'bora', 'vamos', 'aceito', 'topo',
+  'com certeza', 'claro', 'evelyn', 'prioridade', 'manda', 'quero saber',
+];
+const NEGATIVE_HINTS = [
+  'não quero', 'nao quero', 'não tenho interesse', 'nao tenho interesse',
+  'não', 'nao', 'agora não', 'agora nao', 'sair', 'parar', 'descadastr', 'pare',
+];
+
+export async function classifyCampaignIntent(text) {
+  const t = String(text || '').toLowerCase().trim();
+  if (!t) return { positive: false, source: 'empty' };
+
+  const hasNeg = NEGATIVE_HINTS.some(h => t.includes(h));
+  const hasPos = POSITIVE_HINTS.some(h => t.includes(h));
+  // Sinais claros e sem ambiguidade → decide direto (sem custo de IA).
+  if (hasPos && !hasNeg) return { positive: true, source: 'keyword' };
+  if (hasNeg && !hasPos) return { positive: false, source: 'keyword' };
+
+  try {
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 50,
+      system:
+        'Você classifica a resposta de um lead a um convite para uma lista VIP (abertura de vagas para acompanhamento nutricional pago). ' +
+        'Responda APENAS JSON {"positive": true|false}. positive=true se a pessoa demonstra interesse, quer prioridade, ' +
+        'quer saber mais ou aceita; positive=false se recusa, demonstra desinteresse, pede para parar ou apenas faz uma ' +
+        'pergunta neutra sem sinal de interesse. A intenção prevalece sobre a palavra exata.',
+      messages: [{ role: 'user', content: `Resposta do lead: "${text}"` }],
+    });
+    const raw = response.content[0].text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(raw);
+    return { positive: parsed.positive === true, source: 'ai' };
+  } catch (err) {
+    console.error('[campanha] classificador IA falhou, fallback keyword:', err.message);
+    // Fallback conservador: na dúvida, trata como positivo para não perder lead
+    // quente (a Karina valida no handoff de qualquer forma).
+    return { positive: hasPos, source: 'fallback' };
+  }
+}
