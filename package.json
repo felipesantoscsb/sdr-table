@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "audit:active": "node scripts/audit-active-conversations.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",

@@ -3,6 +3,7 @@
 // Aguarda a lead acionar o agente pelo WhatsApp antes de processar.
 
 import { safeSet } from '../redis.js';
+import { normalizePhone } from '../conversation/store.js';
 
 const SETE_DIAS_SEGUNDOS = 7 * 24 * 60 * 60;
 const PREFIX = 'quizpre:';
@@ -17,7 +18,7 @@ export async function handleQuizPre(req, res) {
 
   // Normaliza o número
   const rawPhone = body.whats || body.Telefone || body.telefone || '';
-  const phone = rawPhone.replace(/\D/g, '');
+  const phone = normalizePhone(rawPhone);
 
   if (!phone) {
     return res.status(400).json({ error: 'Número de WhatsApp obrigatório' });
