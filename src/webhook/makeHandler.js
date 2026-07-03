@@ -4,6 +4,7 @@
 import { activateLead, addMessage, enqueueMessage, normalizePhone } from '../conversation/store.js';
 import { generateFirstContact } from '../ai/anthropic.js';
 import { sendMessage, notifySDR } from '../zapi/sender.js';
+import { sendOfficialTemplate } from '../whatsappOfficial/sender.js';
 
 function dentroDoHorario() {
   const agora = new Date();
@@ -34,6 +35,50 @@ function normalizeLead(body) {
   };
 }
 
+function firstName(name) {
+  return String(name || '').trim().split(/\s+/)[0] || 'você';
+}
+
+function sourceIncludes(leadData, term) {
+  return String(leadData.source || '').toLowerCase().includes(term);
+}
+
+function templateForLead(leadData) {
+  if (sourceIncludes(leadData, 'natalia_kelm')) return null;
+  if (
+    sourceIncludes(leadData, 'formulario_consulta_evelyn')
+    || sourceIncludes(leadData, 'consulta_evelyn')
+    || sourceIncludes(leadData, 'evelyn_stories')
+  ) {
+    return 'pos_formulario_consulta_evelyn_vfinal';
+  }
+  return 'pos_formulario_padrao_vfinal';
+}
+
+function buildSdrBriefing(leadData, templateName) {
+  return [
+    `Source: ${leadData.source || 'formulário'}`,
+    `Primeira mensagem enviada via API Oficial: ${templateName}`,
+    `Dor/gancho: ${leadData.oqueMaisPesa || leadData.dores || leadData.maiorDificuldade || 'avaliar respostas do formulário'}`,
+    `Histórico: ${leadData.historico || 'não informado'}`,
+    `Próximo passo: aguardar resposta no Hub Table e conduzir pelo CRM`,
+  ].join('\n');
+}
+
+async function sendOfficialFirstContact(leadData, phone) {
+  const templateName = templateForLead(leadData);
+  if (!templateName) return false;
+  await sendOfficialTemplate({
+    to: phone,
+    templateName,
+    params: [firstName(leadData.nome)],
+  });
+  await addMessage(phone, 'assistant', `[template oficial: ${templateName}]`);
+  await notifySDR(leadData, buildSdrBriefing(leadData, templateName));
+  console.log(`✅ Lead ${leadData.nome} iniciado via API Oficial (${templateName})`);
+  return true;
+}
+
 async function processLead(leadData, phone) {
   // Persiste a lead no Redis ANTES da IA — garante que o CRM (hub-table)
   // sincronize a lead mesmo se a geração de mensagem / Z-API falhar.
@@ -44,6 +89,13 @@ async function processLead(leadData, phone) {
   }
 
   try {
+    try {
+      const sentOfficial = await sendOfficialFirstContact(leadData, phone);
+      if (sentOfficial) return;
+    } catch (officialErr) {
+      console.error(`❌ Falha ao iniciar ${leadData.nome} via API Oficial, usando fluxo legado:`, officialErr.message);
+    }
+
     const result = await generateFirstContact(leadData);
 
     leadData._monitorarDePerto = result.orientacao?.monitorarDePerto || false;
