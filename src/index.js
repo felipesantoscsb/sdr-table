@@ -9,7 +9,7 @@ import { handleMakeLead } from './webhook/makeHandler.js';
 import { handleQuizLead } from './webhook/quizHandler.js';
 import { handleZapiMessage, processQueue } from './webhook/zapiHandler.js';
 import { handleQuizPre } from './webhook/quizPreHandler.js';
-import { handleDisparo, fireDossie } from './disparos/handler.js';
+import { handleDisparo, fireDossie, DOSSIE_WHATSAPP_ENABLED } from './disparos/handler.js';
 import { gerarDossie } from './disparos/gerador.js';
 import { handleTrack } from './webhook/trackHandler.js';
 import { handleTicto } from './webhook/tictoHandler.js';
@@ -22,7 +22,7 @@ import {
   clearPendingFollowUps,
   FOLLOWUP_6H_ENABLED,
 } from './followup.js';
-import { safeKeys, safeGet, safeSet } from './redis.js';
+import { safeKeys, safeGet, safeSet, safeDel } from './redis.js';
 const redisGet = safeGet; // alias para clareza no recovery
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -109,6 +109,11 @@ async function recoverPendingTimers() {
   // ── Dossiês pendentes ──────────────────────────────────────────────────────
   const dossieKeys = await safeKeys('pending_dossie:*');
   for (const key of dossieKeys) {
+    if (!DOSSIE_WHATSAPP_ENABLED) {
+      await safeDel(key);
+      continue;
+    }
+
     const raw = await safeGet(key);
     if (!raw) continue;
     let pending;

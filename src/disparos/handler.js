@@ -16,6 +16,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DOSSIES_DIR = join(__dirname, '../../public/planos');
 const DELAY_MS = 15 * 60 * 1000;
 const CTA_WHATSAPP = '👉 Ver meu resultado:';
+export const DOSSIE_WHATSAPP_ENABLED = process.env.DOSSIE_WHATSAPP_ENABLED === 'true';
 
 if (!existsSync(DOSSIES_DIR)) {
   mkdirSync(DOSSIES_DIR, { recursive: true });
@@ -124,6 +125,12 @@ export async function handleDisparo(req, res) {
 
   res.status(200).json({ received: true, phone, perfil });
 
+  if (!DOSSIE_WHATSAPP_ENABLED) {
+    await safeDel(`pending_dossie:${phone}`);
+    console.log(`🛑 Disparo de dossiê pausado — ${nome} (${phone}) não será enfileirada`);
+    return;
+  }
+
   const delay = DELAY_MS;
   const fire_at = Date.now() + delay;
 
@@ -147,6 +154,12 @@ export async function handleDisparo(req, res) {
  */
 export async function fireDossie({ nome, phone, perfil, historico, respostas, source, lead_event_id, tier }) {
   try {
+    if (!DOSSIE_WHATSAPP_ENABLED) {
+      await safeDel(`pending_dossie:${phone}`);
+      console.log(`🛑 Disparo de dossiê pausado — pendência removida para ${nome} (${phone})`);
+      return;
+    }
+
     console.log(`🤖 Gerando dossiê para ${nome} (perfil ${perfil}, tier ${tier || 'n/a'}, ${respostas.length} respostas)...`);
     const personalizado = await generateDossie({ nome, perfil, historico, respostas, source, tier });
     console.log(`✅ Conteúdo gerado — mensagem: "${personalizado.whatsappMessage?.slice(0, 60)}..."`);
@@ -192,6 +205,12 @@ export async function scheduleDisparo({ nome, phone, perfil: perfilRaw, historic
   const historico = Array.isArray(historicoRaw) ? historicoRaw.join(', ') : (historicoRaw || '');
   const respostas = parseRespostas(respostasRaw);
   const source    = src || '';
+
+  if (!DOSSIE_WHATSAPP_ENABLED) {
+    await safeDel(`pending_dossie:${phone}`);
+    console.log(`🛑 [quiz] Disparo de dossiê pausado — ${nome} (${phone}) não será enfileirada`);
+    return;
+  }
 
   const delay   = DELAY_MS;
   const fire_at = Date.now() + delay;
