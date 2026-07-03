@@ -1,26 +1,20 @@
 // src/disparos/handler.js
 
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { generateDossie } from '../ai/anthropic.js';
-import { gerarDossie } from './gerador.js';
-import { sendMessage } from '../zapi/sender.js';
 import { normalizePhone } from '../conversation/store.js';
-import { config } from '../../config/index.js';
 import { safeSet, safeDel } from '../redis.js';
+import { sendOfficialTemplate } from '../whatsappOfficial/sender.js';
 
 const PENDING_DOSSIE_TTL = 24 * 60 * 60; // 24h — cobre fora-de-horário
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const DOSSIES_DIR = join(__dirname, '../../public/planos');
 const DELAY_MS = 15 * 60 * 1000;
-const CTA_WHATSAPP = '👉 Ver meu resultado:';
 export const DOSSIE_WHATSAPP_ENABLED = process.env.DOSSIE_WHATSAPP_ENABLED === 'true';
 
-if (!existsSync(DOSSIES_DIR)) {
-  mkdirSync(DOSSIES_DIR, { recursive: true });
-}
+const DOSSIE_TEMPLATE_BY_PROFILE = {
+  E: 'dossie_emocional',
+  R: 'dossie_restritiva',
+  S: 'dossie_sobrevivencia',
+  A: 'dossie_desconectada',
+};
 
 function resolverPerfil(perfil) {
   if (!perfil) return 'E';
@@ -60,15 +54,6 @@ function parseRespostas(raw) {
   return [];
 }
 
-function slugify(nome) {
-  return nome
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
 function dentroDoHorario() {
   const brasilia = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
   const dia = brasilia.getDay();
@@ -86,6 +71,10 @@ function msAteAbertura() {
     ? (8 - hora) * 60 - minuto
     : (24 - hora + 8) * 60 - minuto;
   return minutosAte8h * 60 * 1000;
+}
+
+function firstName(name) {
+  return String(name || '').trim().split(/\s+/)[0] || 'você';
 }
 
 export async function handleDisparo(req, res) {
@@ -160,36 +149,15 @@ export async function fireDossie({ nome, phone, perfil, historico, respostas, so
       return;
     }
 
-    console.log(`🤖 Gerando dossiê para ${nome} (perfil ${perfil}, tier ${tier || 'n/a'}, ${respostas.length} respostas)...`);
-    const personalizado = await generateDossie({ nome, perfil, historico, respostas, source, tier });
-    console.log(`✅ Conteúdo gerado — mensagem: "${personalizado.whatsappMessage?.slice(0, 60)}..."`);
-
-    const html = gerarDossie(perfil, nome, tier, personalizado.identificacaoParagrafo, personalizado.sinaisPersonalizados);
-    console.log(`📄 HTML gerado (${html.length} chars)`);
-
-    const slug = `${slugify(nome)}-${Date.now()}`;
-    const filename = `${slug}.html`;
-    writeFileSync(join(DOSSIES_DIR, filename), html, 'utf-8');
-
-    // URL com lid quando disponível — habilita identidade server-side no dossiê
-    const url = `https://raiz.evelynliu.com.br/d/${slug}${lead_event_id ? '?lid=' + encodeURIComponent(lead_event_id) : ''}`;
-    const mensagem = `${personalizado.whatsappMessage}\n${CTA_WHATSAPP} ${url}`;
-
-    const DOSSIE_TTL = 7 * 24 * 60 * 60; // 7 dias
-
-    // HTML completo no Redis — sobrevive a redeploys (disco do Railway é efêmero)
-    await safeSet(`dossie_html:${slug}`, html, 'EX', DOSSIE_TTL);
-
-    // Metadados (inclui lead_event_id para debug e futuros lookups)
-    await safeSet(
-      `dossie:${slug}`,
-      JSON.stringify({ phone, perfil, nome, slug, url, lead_event_id: lead_event_id || null }),
-      'EX', DOSSIE_TTL
-    );
-
-    await sendMessage(phone, mensagem);
+    const templateName = DOSSIE_TEMPLATE_BY_PROFILE[perfil] || DOSSIE_TEMPLATE_BY_PROFILE.E;
+    console.log(`📨 Enviando dossiê oficial para ${nome} (${phone}) — perfil ${perfil}, template ${templateName}`);
+    await sendOfficialTemplate({
+      to: phone,
+      templateName,
+      params: [firstName(nome)],
+    });
     await safeDel(`pending_dossie:${phone}`);
-    console.log(`✅ Dossiê enviado para ${nome}: ${url}`);
+    console.log(`✅ Dossiê oficial enviado para ${nome} (${phone})`);
   } catch (err) {
     console.error(`❌ Erro no disparo para ${nome} (${phone}):`, err.message);
     console.error(err.stack);
