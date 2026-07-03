@@ -54,8 +54,21 @@ const DOSSIE_PERFIL_MAP = {
   emocional: 'emocional', restritiva: 'restritiva',
   sobrevivencia: 'sobrevivencia', desconectada: 'desconectada',
 };
+const DOSSIE_STATIC_SLUGS = {
+  emocional: 'E',
+  restritiva: 'R',
+  sobrevivencia: 'S',
+  desconectada: 'A',
+};
 app.get('/d/:slug', async (req, res) => {
   const { slug } = req.params;
+
+  if (DOSSIE_STATIC_SLUGS[slug]) {
+    const html = gerarDossie(DOSSIE_STATIC_SLUGS[slug], '', null, '', []);
+    console.log(`[/d/:slug] ${slug} → dossiê padrão`);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(html);
+  }
 
   // 1ª fonte: HTML completo no Redis (sobrevive a redeploys)
   let html = await safeGet(`dossie_html:${slug}`);
