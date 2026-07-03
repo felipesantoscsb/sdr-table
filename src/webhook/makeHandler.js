@@ -5,6 +5,7 @@ import { activateLead, addMessage, enqueueMessage, normalizePhone } from '../con
 import { generateFirstContact } from '../ai/anthropic.js';
 import { sendMessage, notifySDR } from '../zapi/sender.js';
 import { sendOfficialTemplate } from '../whatsappOfficial/sender.js';
+import { registrarTemplateWhatsApp } from '../hub/client.js';
 
 function dentroDoHorario() {
   const agora = new Date();
@@ -68,10 +69,18 @@ function buildSdrBriefing(leadData, templateName) {
 async function sendOfficialFirstContact(leadData, phone) {
   const templateName = templateForLead(leadData);
   if (!templateName) return false;
-  await sendOfficialTemplate({
+  const params = [firstName(leadData.nome)];
+  const provider = await sendOfficialTemplate({
     to: phone,
     templateName,
-    params: [firstName(leadData.nome)],
+    params,
+  });
+  await registrarTemplateWhatsApp({
+    leadData,
+    phone,
+    templateName,
+    params,
+    provider,
   });
   await addMessage(phone, 'assistant', `[template oficial: ${templateName}]`);
   await notifySDR(leadData, buildSdrBriefing(leadData, templateName));

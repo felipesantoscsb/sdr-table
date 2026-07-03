@@ -3,6 +3,7 @@
 import { normalizePhone } from '../conversation/store.js';
 import { safeSet, safeDel } from '../redis.js';
 import { sendOfficialTemplate } from '../whatsappOfficial/sender.js';
+import { registrarTemplateWhatsApp } from '../hub/client.js';
 
 const PENDING_DOSSIE_TTL = 24 * 60 * 60; // 24h — cobre fora-de-horário
 
@@ -150,11 +151,19 @@ export async function fireDossie({ nome, phone, perfil, historico, respostas, so
     }
 
     const templateName = DOSSIE_TEMPLATE_BY_PROFILE[perfil] || DOSSIE_TEMPLATE_BY_PROFILE.E;
+    const params = [firstName(nome)];
     console.log(`📨 Enviando dossiê oficial para ${nome} (${phone}) — perfil ${perfil}, template ${templateName}`);
-    await sendOfficialTemplate({
+    const provider = await sendOfficialTemplate({
       to: phone,
       templateName,
-      params: [firstName(nome)],
+      params,
+    });
+    await registrarTemplateWhatsApp({
+      leadData: { nome, source, tier },
+      phone,
+      templateName,
+      params,
+      provider,
     });
     await safeDel(`pending_dossie:${phone}`);
     console.log(`✅ Dossiê oficial enviado para ${nome} (${phone})`);

@@ -7,6 +7,8 @@ import axios from 'axios';
 
 const HUB_URL = process.env.HUB_HANDOFF_URL
   || 'https://crm.tableclinic.com.br/webhook/handoff-agendamento';
+const HUB_TEMPLATE_SENT_URL = process.env.HUB_TEMPLATE_SENT_URL
+  || 'https://crm.tableclinic.com.br/webhook/whatsapp-template-sent';
 const HUB_SECRET = process.env.HUB_WEBHOOK_SECRET || process.env.INTERNAL_WEBHOOK_SECRET;
 
 const retryDelays = [0, 1500, 4000];
@@ -56,4 +58,36 @@ export async function migrarParaPreConsulta({ leadData = {}, phone, turno, brief
     }
   }
   throw lastError;
+}
+
+export async function registrarTemplateWhatsApp({ leadData = {}, phone, templateName, params = [], provider = null }) {
+  if (!HUB_SECRET) {
+    console.warn('[hub] HUB_WEBHOOK_SECRET não configurado — registro de template ignorado');
+    return null;
+  }
+
+  const payload = {
+    phone,
+    nome: leadData.nome || leadData.name || 'Lead',
+    template_name: templateName,
+    params,
+    provider,
+    provider_message_id: provider?.messages?.[0]?.id || null,
+    source: leadData.source || null,
+    tier: leadData.tier || leadData.temperatura || leadData.qualificacao?.tier || null,
+    funnel: String(leadData.source || '').toLowerCase().includes('quiz') ? 'quiz' : 'captacao',
+  };
+
+  try {
+    const res = await axios.post(HUB_TEMPLATE_SENT_URL, payload, {
+      headers: { 'Content-Type': 'application/json', 'x-webhook-secret': HUB_SECRET },
+      timeout: 12_000,
+    });
+    console.log(`[hub] template ${templateName} registrado no Hub — conversa ${res.data?.conversation_id}`);
+    return res.data;
+  } catch (err) {
+    const status = err.response?.status;
+    console.warn(`[hub] falha ao registrar template ${templateName}${status ? ` (HTTP ${status})` : ''}: ${err.message}`);
+    return null;
+  }
 }
