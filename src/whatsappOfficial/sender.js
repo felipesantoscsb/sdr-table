@@ -18,11 +18,27 @@ function bodyComponents(params = []) {
   }];
 }
 
-export async function sendOfficialTemplate({ to, templateName, languageCode, params = [] }) {
+function buttonComponents(buttonParams = []) {
+  return buttonParams
+    .map((value, index) => String(value || '').trim()
+      ? {
+          type: 'button',
+          sub_type: 'url',
+          index: String(index),
+          parameters: [{ type: 'text', text: String(value).trim() }],
+        }
+      : null)
+    .filter(Boolean);
+}
+
+export async function sendOfficialTemplate({ to, templateName, languageCode, params = [], buttonParams = [] }) {
   const phoneNumberId = requireEnv('WHATSAPP_PHONE_NUMBER_ID');
   const token = requireEnv('WHATSAPP_ACCESS_TOKEN');
   const language = languageCode || process.env.WHATSAPP_TEMPLATE_LANGUAGE || 'pt_BR';
-  const components = bodyComponents(params);
+  const components = [
+    ...(bodyComponents(params) || []),
+    ...buttonComponents(buttonParams),
+  ];
 
   try {
     const response = await axios.post(`${GRAPH_URL}/${phoneNumberId}/messages`, {
@@ -32,7 +48,7 @@ export async function sendOfficialTemplate({ to, templateName, languageCode, par
       template: {
         name: templateName,
         language: { code: language },
-        ...(components ? { components } : {}),
+        ...(components.length ? { components } : {}),
       },
     }, {
       headers: {

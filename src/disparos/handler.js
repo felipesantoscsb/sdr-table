@@ -16,6 +16,7 @@ const DOSSIE_TEMPLATE_BY_PROFILE = {
   S: 'dossie_sobrevivencia',
   A: 'dossie_desconectada',
 };
+const DOSSIE_BUTTON_MODE = process.env.DOSSIE_BUTTON_MODE || 'static';
 
 function resolverPerfil(perfil) {
   if (!perfil) return 'E';
@@ -152,17 +153,21 @@ export async function fireDossie({ nome, phone, perfil, historico, respostas, so
 
     const templateName = DOSSIE_TEMPLATE_BY_PROFILE[perfil] || DOSSIE_TEMPLATE_BY_PROFILE.E;
     const params = [firstName(nome)];
+    const buttonParams = DOSSIE_BUTTON_MODE === 'dynamic' && lead_event_id
+      ? [lead_event_id]
+      : [];
     console.log(`📨 Enviando dossiê oficial para ${nome} (${phone}) — perfil ${perfil}, template ${templateName}`);
     const provider = await sendOfficialTemplate({
       to: phone,
       templateName,
       params,
+      buttonParams,
     });
     await registrarTemplateWhatsApp({
       leadData: { nome, source, tier },
       phone,
       templateName,
-      params,
+      params: [...params, ...buttonParams],
       provider,
     });
     await safeDel(`pending_dossie:${phone}`);
