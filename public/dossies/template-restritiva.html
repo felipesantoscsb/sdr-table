@@ -25,7 +25,11 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
   function getCookie(n){const m=document.cookie.match(new RegExp('(^| )'+n+'=([^;]+)'));return m?m[2]:null;}
   async function sha256(str){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(str).toLowerCase().trim()));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
   const _p=new URLSearchParams(window.location.search);
-  const _lid=_p.get('lid')||null;
+  // Persistência de identidade em cookie primário: o link do WhatsApp traz
+  // lid/ph uma vez; reaberturas sem parâmetro recuperam do cookie (90d)
+  if(_p.get('lid'))document.cookie='tc_lid='+encodeURIComponent(_p.get('lid'))+'; path=/; max-age=7776000; SameSite=Lax';
+  if(_p.get('ph'))document.cookie='tc_ph='+encodeURIComponent(_p.get('ph'))+'; path=/; max-age=7776000; SameSite=Lax';
+  const _lid=_p.get('lid')||getCookie('tc_lid')||null;
   const _phRaw=_p.get('ph')||getCookie('tc_ph')||null;
   const _fbclid=_p.get('fbclid')||null;
   window._dossieLid=_lid;
@@ -41,7 +45,7 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
       if(_r.ok){const _c=await _r.json();window._dossieCtx=_c;_am={em:_c.em_hash,ph:_c.ph_hash,fn:_c.fn_hash,external_id:_c.external_id};}
     }catch(e){}
   }
-  if(!window._dossieCtx&&_phRaw){window._dossiePhoneHashed=await sha256(_phRaw);_am={ph:window._dossiePhoneHashed};}
+  if(!window._dossieCtx&&_phRaw){window._dossiePhoneHashed=await sha256(_phRaw);_am={ph:window._dossiePhoneHashed,external_id:window._dossiePhoneHashed};}
   fbq('init','989971718548782',_am);
   const _dvId=crypto.randomUUID();
   const _pvId=crypto.randomUUID();
