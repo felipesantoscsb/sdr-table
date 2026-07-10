@@ -4,6 +4,7 @@
 import { activateLead, addMessage, enqueueMessage, normalizePhone } from '../conversation/store.js';
 import { generateFirstContact } from '../ai/anthropic.js';
 import { sendMessage, notifySDR } from '../zapi/sender.js';
+import { garantirLeadCaptacaoNoHub, verificarElegibilidadeContatoSdr } from '../hub/client.js';
 
 function dentroDoHorario() {
   const agora = new Date();
@@ -35,6 +36,19 @@ function normalizeLead(body) {
 }
 
 async function processLead(leadData, phone) {
+  try {
+    await garantirLeadCaptacaoNoHub({ leadData, phone });
+  } catch (err) {
+    console.warn(`🛑 Lead ${leadData.nome} (${phone}) bloqueado: Hub não confirmou criação do card de captação`);
+    return;
+  }
+
+  const eligibility = await verificarElegibilidadeContatoSdr({ phone, leadData, source: 'captacao_formulario' });
+  if (!eligibility.allowed) {
+    console.warn(`🛑 Lead ${leadData.nome} (${phone}) bloqueado pelo Hub: ${eligibility.reason}`);
+    return;
+  }
+
   // Persiste a lead no Redis ANTES da IA — garante que o CRM (hub-table)
   // sincronize a lead mesmo se a geração de mensagem / Z-API falhar.
   try {

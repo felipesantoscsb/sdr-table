@@ -56,6 +56,13 @@ export async function activateLead(phone, leadData) {
   await safeSet(PREFIX.lastSeen + normalizePhone(phone), Date.now());
 }
 
+export async function deactivateLead(phone) {
+  const normalized = normalizePhone(phone);
+  await safeDel(PREFIX.conv + normalized);
+  await safeDel(PREFIX.queue + normalized);
+  await safeDel(PREFIX.lastSeen + normalized);
+}
+
 export async function isActiveLead(phone) {
   const conv = await getConv(phone);
   return conv.isActiveLead;

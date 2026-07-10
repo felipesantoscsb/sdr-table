@@ -9,6 +9,10 @@ const HUB_URL = process.env.HUB_HANDOFF_URL
   || 'https://crm.tableclinic.com.br/webhook/handoff-agendamento';
 const HUB_TEMPLATE_SENT_URL = process.env.HUB_TEMPLATE_SENT_URL
   || 'https://crm.tableclinic.com.br/webhook/whatsapp-template-sent';
+const HUB_CONTACT_CHECK_URL = process.env.HUB_CONTACT_CHECK_URL
+  || 'https://crm.tableclinic.com.br/webhook/sdr-contact-check';
+const HUB_CAPTACAO_LEAD_URL = process.env.HUB_CAPTACAO_LEAD_URL
+  || 'https://crm.tableclinic.com.br/webhook/quiz';
 const HUB_SECRET = process.env.HUB_WEBHOOK_SECRET || process.env.INTERNAL_WEBHOOK_SECRET;
 
 const retryDelays = [0, 1500, 4000];
@@ -89,5 +93,66 @@ export async function registrarTemplateWhatsApp({ leadData = {}, phone, template
     const status = err.response?.status;
     console.warn(`[hub] falha ao registrar template ${templateName}${status ? ` (HTTP ${status})` : ''}: ${err.message}`);
     return null;
+  }
+}
+
+export async function garantirLeadCaptacaoNoHub({ leadData = {}, phone }) {
+  const payload = {
+    nome: leadData.nome || leadData.name || 'Lead',
+    whats: phone,
+    phone,
+    email: leadData.email || null,
+    origin: leadData.origin || 'Formulário',
+    source: leadData.source || 'make',
+    tier: leadData.tier || leadData.temperatura || leadData.qualificacao?.tier || null,
+    score: leadData.score || leadData.qualificacao?.score || null,
+    obs_form: [
+      leadData.oqueMaisPesa || leadData.dores ? `O que mais pesa: ${leadData.oqueMaisPesa || leadData.dores}` : null,
+      leadData.saude ? `Saúde: ${leadData.saude}` : null,
+      leadData.comprometimento ? `Comprometimento: ${leadData.comprometimento}` : null,
+      leadData.maiorDificuldade || leadData.dificuldade ? `Maior dificuldade: ${leadData.maiorDificuldade || leadData.dificuldade}` : null,
+      leadData.historico ? `Histórico: ${Array.isArray(leadData.historico) ? leadData.historico.join('\n') : leadData.historico}` : null,
+    ].filter(Boolean).join('\n') || null,
+  };
+
+  try {
+    const res = await axios.post(HUB_CAPTACAO_LEAD_URL, payload, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 12_000,
+    });
+    console.log(`[hub] lead de captação garantida no Hub — ${payload.nome} (${phone}) funil ${res.data?.funnel}`);
+    return res.data;
+  } catch (err) {
+    const status = err.response?.status;
+    console.warn(`[hub] falha ao garantir lead de captação${status ? ` (HTTP ${status})` : ''}: ${err.message}`);
+    throw err;
+  }
+}
+
+export async function verificarElegibilidadeContatoSdr({ phone, leadData = {}, source = 'sdr_auto' }) {
+  if (!HUB_SECRET) {
+    console.warn('[hub] HUB_WEBHOOK_SECRET não configurado — contato bloqueado por segurança');
+    return { allowed: false, reason: 'hub_secret_missing' };
+  }
+
+  try {
+    const res = await axios.post(HUB_CONTACT_CHECK_URL, {
+      phone,
+      nome: leadData.nome || leadData.name || null,
+      source: leadData.source || source,
+    }, {
+      headers: { 'Content-Type': 'application/json', 'x-webhook-secret': HUB_SECRET },
+      timeout: 8_000,
+    });
+    return {
+      allowed: res.data?.allowed === true,
+      reason: res.data?.reason || null,
+      patient: res.data?.patient || null,
+      card: res.data?.card || null,
+    };
+  } catch (err) {
+    const status = err.response?.status;
+    console.warn(`[hub] falha ao verificar elegibilidade SDR${status ? ` (HTTP ${status})` : ''}: ${err.message}`);
+    return { allowed: false, reason: 'hub_check_failed' };
   }
 }

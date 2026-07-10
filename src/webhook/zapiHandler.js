@@ -1,13 +1,13 @@
 // src/webhook/zapiHandler.js
 
-import { isActiveLead, isHandedOff, setHandedOff, addMessage, getHistory, getLeadData, getSdrHistory, addSdrMessage, incrementTurn, getTurnCount, TURN_LIMIT, enqueueMessage, dequeueMessages, normalizePhone } from '../conversation/store.js';
+import { isActiveLead, isHandedOff, setHandedOff, addMessage, getHistory, getLeadData, getSdrHistory, addSdrMessage, incrementTurn, getTurnCount, TURN_LIMIT, enqueueMessage, dequeueMessages, normalizePhone, deactivateLead } from '../conversation/store.js';
 import { aggregate } from '../conversation/aggregator.js';
 import { generateReply, generateHandoffBriefing, generateConsultivo, generateFirstContact } from '../ai/anthropic.js';
 import { sendMessage, notifySDR, notifySDRHandoff, notifySDRRedflag, notifySDRTurnLimit, notifyError } from '../zapi/sender.js';
 import { handlePlanoCommand } from '../planos/handler.js';
 import { getQuizPreData } from './quizPreHandler.js';
 import { activateLead } from '../conversation/store.js';
-import { migrarParaPreConsulta } from '../hub/client.js';
+import { migrarParaPreConsulta, verificarElegibilidadeContatoSdr } from '../hub/client.js';
 import { getParticipant, handleCampanhaReply } from '../campanha/handler.js';
 import { config } from '../../config/index.js';
 
@@ -126,6 +126,13 @@ async function handleQuizActivation(phone) {
       };
     }
 
+    const eligibility = await verificarElegibilidadeContatoSdr({ phone, leadData, source: 'quiz_botao_whatsapp' });
+    if (!eligibility.allowed) {
+      console.warn(`🛑 Ativação pós-quiz bloqueada para ${phone}: ${eligibility.reason}`);
+      await deactivateLead(phone);
+      return;
+    }
+
     const result = await generateFirstContact(leadData);
 
     leadData._monitorarDePerto = result.orientacao?.monitorarDePerto || false;
@@ -187,6 +194,19 @@ async function processAggregatedMessages(phone, combinedMessage) {
   try {
     const history = await getHistory(phone);
     const leadData = await getLeadData(phone);
+    const eligibility = await verificarElegibilidadeContatoSdr({ phone, leadData, source: 'sdr_reply' });
+    if (!eligibility.allowed) {
+      console.warn(`🛑 Resposta automática bloqueada para ${phone}: ${eligibility.reason}`);
+      await deactivateLead(phone);
+      if (eligibility.patient) {
+        await sendMessage(
+          config.sdr.phone,
+          `⚠️ Automação SDR bloqueada para paciente: ${eligibility.patient.name || phone} (${phone}).`,
+          { skipDelay: true }
+        );
+      }
+      return;
+    }
 
     await addMessage(phone, 'user', combinedMessage);
     await incrementTurn(phone);
