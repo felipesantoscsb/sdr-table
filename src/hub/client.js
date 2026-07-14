@@ -129,7 +129,7 @@ export async function garantirLeadCaptacaoNoHub({ leadData = {}, phone }) {
   }
 }
 
-export async function verificarElegibilidadeContatoSdr({ phone, leadData = {}, source = 'sdr_auto' }) {
+export async function verificarElegibilidadeContatoSdr({ phone, leadData = {}, source = 'sdr_auto', purpose = null }) {
   if (!HUB_SECRET) {
     console.warn('[hub] HUB_WEBHOOK_SECRET não configurado — contato bloqueado por segurança');
     return { allowed: false, reason: 'hub_secret_missing' };
@@ -140,6 +140,7 @@ export async function verificarElegibilidadeContatoSdr({ phone, leadData = {}, s
       phone,
       nome: leadData.nome || leadData.name || null,
       source: leadData.source || source,
+      purpose,
     }, {
       headers: { 'Content-Type': 'application/json', 'x-webhook-secret': HUB_SECRET },
       timeout: 8_000,

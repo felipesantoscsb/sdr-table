@@ -35,28 +35,36 @@ function normalizeLead(body) {
   };
 }
 
-async function processLead(leadData, phone) {
+async function validateAndActivateLead(leadData, phone) {
+  const eligibility = await verificarElegibilidadeContatoSdr({
+    phone,
+    leadData,
+    source: 'captacao_formulario',
+    purpose: 'activation',
+  });
+  if (!eligibility.allowed) {
+    console.warn(`🛑 Lead ${leadData.nome} (${phone}) bloqueado pelo Hub: ${eligibility.reason}`);
+    return { ok: false, reason: eligibility.reason };
+  }
+
   try {
     await garantirLeadCaptacaoNoHub({ leadData, phone });
   } catch (err) {
     console.warn(`🛑 Lead ${leadData.nome} (${phone}) bloqueado: Hub não confirmou criação do card de captação`);
-    return;
+    return { ok: false, reason: 'hub_card_create_failed' };
   }
 
-  const eligibility = await verificarElegibilidadeContatoSdr({ phone, leadData, source: 'captacao_formulario' });
-  if (!eligibility.allowed) {
-    console.warn(`🛑 Lead ${leadData.nome} (${phone}) bloqueado pelo Hub: ${eligibility.reason}`);
-    return;
-  }
-
-  // Persiste a lead no Redis ANTES da IA — garante que o CRM (hub-table)
-  // sincronize a lead mesmo se a geração de mensagem / Z-API falhar.
   try {
     await activateLead(phone, leadData);
   } catch (e) {
     console.error(`⚠️ Falha ao persistir lead ${leadData.nome} no Redis:`, e.message);
+    return { ok: false, reason: 'redis_activation_failed' };
   }
 
+  return { ok: true };
+}
+
+async function finishLeadFirstContact(leadData, phone) {
   try {
     const result = await generateFirstContact(leadData);
 
@@ -104,7 +112,15 @@ export async function handleMakeLead(req, res) {
   }
 
   console.log(`📥 Novo lead recebido: ${leadData.nome} (${phone})`);
-  res.status(200).json({ received: true, phone });
 
-  await processLead(leadData, phone);
+  const activation = await validateAndActivateLead(leadData, phone);
+  if (!activation.ok) {
+    return res.status(409).json({ received: true, activated: false, phone, reason: activation.reason });
+  }
+
+  res.status(200).json({ received: true, activated: true, phone });
+
+  finishLeadFirstContact(leadData, phone).catch(err => {
+    console.error(`❌ Erro ao finalizar primeiro contato ${leadData.nome}:`, err.message);
+  });
 }
