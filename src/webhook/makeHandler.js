@@ -4,7 +4,7 @@
 import { activateLead, addMessage, enqueueMessage, normalizePhone } from '../conversation/store.js';
 import { generateFirstContact } from '../ai/anthropic.js';
 import { sendMessage, notifySDR } from '../zapi/sender.js';
-import { garantirLeadCaptacaoNoHub, verificarElegibilidadeContatoSdr } from '../hub/client.js';
+import { garantirLeadCaptacaoNoHub, verificarElegibilidadeContatoSdr, bloqueioDefinitivoSdr } from '../hub/client.js';
 
 function dentroDoHorario() {
   const agora = new Date();
@@ -36,22 +36,20 @@ function normalizeLead(body) {
 }
 
 async function validateAndActivateLead(leadData, phone) {
+  // Único veto que impede a ativação: o Hub confirmar que é paciente ou venda
+  // concluída. Check indisponível/inconclusivo não bloqueia (fail-open).
   const eligibility = await verificarElegibilidadeContatoSdr({
     phone,
     leadData,
     source: 'captacao_formulario',
     purpose: 'activation',
   });
-  if (!eligibility.allowed) {
+  if (bloqueioDefinitivoSdr(eligibility)) {
     console.warn(`🛑 Lead ${leadData.nome} (${phone}) bloqueado pelo Hub: ${eligibility.reason}`);
-    return { ok: false, reason: eligibility.reason };
+    return { ok: false, blocked: true, reason: eligibility.reason };
   }
-
-  try {
-    await garantirLeadCaptacaoNoHub({ leadData, phone });
-  } catch (err) {
-    console.warn(`🛑 Lead ${leadData.nome} (${phone}) bloqueado: Hub não confirmou criação do card de captação`);
-    return { ok: false, reason: 'hub_card_create_failed' };
+  if (!eligibility.allowed) {
+    console.warn(`⚠️ Elegibilidade inconclusiva para ${leadData.nome} (${phone}) — ativando mesmo assim: ${eligibility.reason}`);
   }
 
   try {
@@ -115,10 +113,21 @@ export async function handleMakeLead(req, res) {
 
   const activation = await validateAndActivateLead(leadData, phone);
   if (!activation.ok) {
-    return res.status(409).json({ received: true, activated: false, phone, reason: activation.reason });
+    // Bloqueio definitivo (paciente/convertido) responde 200 para o formulário
+    // não reprocessar; falha transitória (Redis) responde 500 para o
+    // aquisicao-table guardar e reenviar via drain.
+    if (activation.blocked) {
+      return res.status(200).json({ received: true, activated: false, phone, reason: activation.reason });
+    }
+    return res.status(500).json({ received: true, activated: false, phone, reason: activation.reason });
   }
 
   res.status(200).json({ received: true, activated: true, phone });
+
+  // Card no CRM é bookkeeping: nunca condiciona a ativação nem o 1º contato.
+  garantirLeadCaptacaoNoHub({ leadData, phone }).catch(err => {
+    console.warn(`⚠️ Card de captação não criado no Hub para ${leadData.nome} (${phone}): ${err.message}`);
+  });
 
   finishLeadFirstContact(leadData, phone).catch(err => {
     console.error(`❌ Erro ao finalizar primeiro contato ${leadData.nome}:`, err.message);

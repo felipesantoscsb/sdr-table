@@ -129,6 +129,16 @@ export async function garantirLeadCaptacaoNoHub({ leadData = {}, phone }) {
   }
 }
 
+// Só estas razões representam veto definitivo do Hub: a pessoa é paciente ou
+// já comprou. Qualquer outra resposta (check indisponível, secret ausente,
+// lead sem card no CRM etc.) NÃO bloqueia o agente — fail-open, para a
+// captação nunca parar por indisponibilidade ou lacuna de dados do Hub.
+const RAZOES_BLOQUEIO_DEFINITIVO = new Set(['patient', 'converted_or_won']);
+
+export function bloqueioDefinitivoSdr(eligibility) {
+  return !eligibility?.allowed && RAZOES_BLOQUEIO_DEFINITIVO.has(eligibility?.reason);
+}
+
 export async function verificarElegibilidadeContatoSdr({ phone, leadData = {}, source = 'sdr_auto', purpose = null }) {
   if (!HUB_SECRET) {
     console.warn('[hub] HUB_WEBHOOK_SECRET não configurado — contato bloqueado por segurança');

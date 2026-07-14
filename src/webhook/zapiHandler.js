@@ -7,7 +7,7 @@ import { sendMessage, notifySDR, notifySDRHandoff, notifySDRRedflag, notifySDRTu
 import { handlePlanoCommand } from '../planos/handler.js';
 import { getQuizPreData } from './quizPreHandler.js';
 import { activateLead } from '../conversation/store.js';
-import { garantirLeadCaptacaoNoHub, migrarParaPreConsulta, verificarElegibilidadeContatoSdr } from '../hub/client.js';
+import { garantirLeadCaptacaoNoHub, migrarParaPreConsulta, verificarElegibilidadeContatoSdr, bloqueioDefinitivoSdr } from '../hub/client.js';
 import { getParticipant, handleCampanhaReply } from '../campanha/handler.js';
 import { config } from '../../config/index.js';
 
@@ -126,23 +126,22 @@ async function handleQuizActivation(phone) {
       };
     }
 
-    try {
-      await garantirLeadCaptacaoNoHub({
-        leadData: { ...leadData, source: leadData.source || 'captacao_sdr' },
-        phone,
-      });
-    } catch (err) {
-      console.warn(`🛑 Ativação pós-quiz bloqueada para ${phone}: Hub não confirmou criação do card de captação`);
-      await deactivateLead(phone);
-      return;
-    }
-
-    const eligibility = await verificarElegibilidadeContatoSdr({ phone, leadData, source: 'quiz_botao_whatsapp' });
-    if (!eligibility.allowed) {
+    // Só o veto definitivo do Hub (paciente/convertido) impede a ativação;
+    // check indisponível ou lead sem card não bloqueia (fail-open).
+    const eligibility = await verificarElegibilidadeContatoSdr({ phone, leadData, source: 'quiz_botao_whatsapp', purpose: 'activation' });
+    if (bloqueioDefinitivoSdr(eligibility)) {
       console.warn(`🛑 Ativação pós-quiz bloqueada para ${phone}: ${eligibility.reason}`);
       await deactivateLead(phone);
       return;
     }
+
+    // Card no CRM é bookkeeping: não condiciona a ativação.
+    garantirLeadCaptacaoNoHub({
+      leadData: { ...leadData, source: leadData.source || 'captacao_sdr' },
+      phone,
+    }).catch(err => {
+      console.warn(`⚠️ Card de captação não criado no Hub para ${phone}: ${err.message}`);
+    });
 
     const result = await generateFirstContact(leadData);
 
@@ -205,8 +204,10 @@ async function processAggregatedMessages(phone, combinedMessage) {
   try {
     const history = await getHistory(phone);
     const leadData = await getLeadData(phone);
+    // Bloqueia a resposta automática apenas com veto definitivo do Hub
+    // (paciente ou venda concluída); indisponibilidade não silencia o agente.
     const eligibility = await verificarElegibilidadeContatoSdr({ phone, leadData, source: 'sdr_reply' });
-    if (!eligibility.allowed) {
+    if (bloqueioDefinitivoSdr(eligibility)) {
       console.warn(`🛑 Resposta automática bloqueada para ${phone}: ${eligibility.reason}`);
       await deactivateLead(phone);
       if (eligibility.patient) {
@@ -217,6 +218,9 @@ async function processAggregatedMessages(phone, combinedMessage) {
         );
       }
       return;
+    }
+    if (!eligibility.allowed) {
+      console.warn(`⚠️ Elegibilidade inconclusiva para ${phone} — respondendo mesmo assim: ${eligibility.reason}`);
     }
 
     await addMessage(phone, 'user', combinedMessage);
