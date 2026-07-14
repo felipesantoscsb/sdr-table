@@ -7,7 +7,7 @@ import { sendMessage, notifySDR, notifySDRHandoff, notifySDRRedflag, notifySDRTu
 import { handlePlanoCommand } from '../planos/handler.js';
 import { getQuizPreData } from './quizPreHandler.js';
 import { activateLead } from '../conversation/store.js';
-import { migrarParaPreConsulta, verificarElegibilidadeContatoSdr } from '../hub/client.js';
+import { garantirLeadCaptacaoNoHub, migrarParaPreConsulta, verificarElegibilidadeContatoSdr } from '../hub/client.js';
 import { getParticipant, handleCampanhaReply } from '../campanha/handler.js';
 import { config } from '../../config/index.js';
 
@@ -126,11 +126,24 @@ async function handleQuizActivation(phone) {
       };
     }
 
+    try {
+      await garantirLeadCaptacaoNoHub({
+        leadData: { ...leadData, source: 'captacao_sdr' },
+        phone,
+      });
+    } catch (err) {
+      console.warn(`[hub] não consegui garantir card de captação para ${phone}; seguindo com checagem defensiva: ${err.message}`);
+    }
+
     const eligibility = await verificarElegibilidadeContatoSdr({ phone, leadData, source: 'quiz_botao_whatsapp' });
     if (!eligibility.allowed) {
-      console.warn(`🛑 Ativação pós-quiz bloqueada para ${phone}: ${eligibility.reason}`);
-      await deactivateLead(phone);
-      return;
+      if (['hub_check_failed', 'hub_secret_missing', 'no_pipeline_card'].includes(eligibility.reason)) {
+        console.warn(`⚠️  Hub não confirmou elegibilidade (${eligibility.reason}) para ${phone}; mantendo ativação para não perder handoff.`);
+      } else {
+        console.warn(`🛑 Ativação pós-quiz bloqueada para ${phone}: ${eligibility.reason}`);
+        await deactivateLead(phone);
+        return;
+      }
     }
 
     const result = await generateFirstContact(leadData);
@@ -196,16 +209,20 @@ async function processAggregatedMessages(phone, combinedMessage) {
     const leadData = await getLeadData(phone);
     const eligibility = await verificarElegibilidadeContatoSdr({ phone, leadData, source: 'sdr_reply' });
     if (!eligibility.allowed) {
-      console.warn(`🛑 Resposta automática bloqueada para ${phone}: ${eligibility.reason}`);
-      await deactivateLead(phone);
-      if (eligibility.patient) {
-        await sendMessage(
-          config.sdr.phone,
-          `⚠️ Automação SDR bloqueada para paciente: ${eligibility.patient.name || phone} (${phone}).`,
-          { skipDelay: true }
-        );
+      if (['hub_check_failed', 'hub_secret_missing', 'no_pipeline_card'].includes(eligibility.reason)) {
+        console.warn(`⚠️  Hub não confirmou elegibilidade (${eligibility.reason}) para ${phone}; mantendo resposta ativa para não perder handoff.`);
+      } else {
+        console.warn(`🛑 Resposta automática bloqueada para ${phone}: ${eligibility.reason}`);
+        await deactivateLead(phone);
+        if (eligibility.patient) {
+          await sendMessage(
+            config.sdr.phone,
+            `⚠️ Automação SDR bloqueada para paciente: ${eligibility.patient.name || phone} (${phone}).`,
+            { skipDelay: true }
+          );
+        }
+        return;
       }
-      return;
     }
 
     await addMessage(phone, 'user', combinedMessage);
