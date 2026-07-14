@@ -128,22 +128,20 @@ async function handleQuizActivation(phone) {
 
     try {
       await garantirLeadCaptacaoNoHub({
-        leadData: { ...leadData, source: 'captacao_sdr' },
+        leadData: { ...leadData, source: leadData.source || 'captacao_sdr' },
         phone,
       });
     } catch (err) {
-      console.warn(`[hub] não consegui garantir card de captação para ${phone}; seguindo com checagem defensiva: ${err.message}`);
+      console.warn(`🛑 Ativação pós-quiz bloqueada para ${phone}: Hub não confirmou criação do card de captação`);
+      await deactivateLead(phone);
+      return;
     }
 
     const eligibility = await verificarElegibilidadeContatoSdr({ phone, leadData, source: 'quiz_botao_whatsapp' });
     if (!eligibility.allowed) {
-      if (['hub_check_failed', 'hub_secret_missing', 'no_pipeline_card'].includes(eligibility.reason)) {
-        console.warn(`⚠️  Hub não confirmou elegibilidade (${eligibility.reason}) para ${phone}; mantendo ativação para não perder handoff.`);
-      } else {
-        console.warn(`🛑 Ativação pós-quiz bloqueada para ${phone}: ${eligibility.reason}`);
-        await deactivateLead(phone);
-        return;
-      }
+      console.warn(`🛑 Ativação pós-quiz bloqueada para ${phone}: ${eligibility.reason}`);
+      await deactivateLead(phone);
+      return;
     }
 
     const result = await generateFirstContact(leadData);
@@ -209,20 +207,16 @@ async function processAggregatedMessages(phone, combinedMessage) {
     const leadData = await getLeadData(phone);
     const eligibility = await verificarElegibilidadeContatoSdr({ phone, leadData, source: 'sdr_reply' });
     if (!eligibility.allowed) {
-      if (['hub_check_failed', 'hub_secret_missing', 'no_pipeline_card'].includes(eligibility.reason)) {
-        console.warn(`⚠️  Hub não confirmou elegibilidade (${eligibility.reason}) para ${phone}; mantendo resposta ativa para não perder handoff.`);
-      } else {
-        console.warn(`🛑 Resposta automática bloqueada para ${phone}: ${eligibility.reason}`);
-        await deactivateLead(phone);
-        if (eligibility.patient) {
-          await sendMessage(
-            config.sdr.phone,
-            `⚠️ Automação SDR bloqueada para paciente: ${eligibility.patient.name || phone} (${phone}).`,
-            { skipDelay: true }
-          );
-        }
-        return;
+      console.warn(`🛑 Resposta automática bloqueada para ${phone}: ${eligibility.reason}`);
+      await deactivateLead(phone);
+      if (eligibility.patient) {
+        await sendMessage(
+          config.sdr.phone,
+          `⚠️ Automação SDR bloqueada para paciente: ${eligibility.patient.name || phone} (${phone}).`,
+          { skipDelay: true }
+        );
       }
+      return;
     }
 
     await addMessage(phone, 'user', combinedMessage);

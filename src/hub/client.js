@@ -103,7 +103,7 @@ export async function garantirLeadCaptacaoNoHub({ leadData = {}, phone }) {
     phone,
     email: leadData.email || null,
     origin: leadData.origin || 'Formulário',
-    source: leadData.source || 'make',
+    source: leadData.source || 'captacao_sdr',
     tier: leadData.tier || leadData.temperatura || leadData.qualificacao?.tier || null,
     score: leadData.score || leadData.qualificacao?.score || null,
     obs_form: [
