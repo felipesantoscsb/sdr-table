@@ -127,6 +127,27 @@ export async function notifySDRTurnLimit(leadData, handoffBriefing) {
   await sendToAll(lines.join('\n'), { skipDelay: true });
 }
 
+export async function notifyManualHandoffBatch({ title, leads }) {
+  const lines = [
+    title || `⚠️ *Leads para ativação manual*`,
+    ``,
+    `Total: ${leads.length}`,
+    ``,
+  ];
+
+  leads.forEach((lead, idx) => {
+    const cleanPhone = String(lead.phone || lead.whatsapp || lead.whats || '').replace(/\D/g, '');
+    lines.push(`${idx + 1}. *${lead.nome || lead.name || 'Lead'}*`);
+    if (lead.source) lines.push(`Fonte: ${lead.source}`);
+    if (lead.status) lines.push(`Status: ${lead.status}`);
+    if (lead.lastUser) lines.push(`Última resposta: "${String(lead.lastUser).slice(0, 240)}"`);
+    if (cleanPhone) lines.push(`🔗 https://wa.me/${cleanPhone}`);
+    lines.push('');
+  });
+
+  await sendToAll(lines.join('\n'), { skipDelay: true });
+}
+
 // ── Campanha sazonal (Lista VIP Evelyn Liu) ──────────────────────────────────
 
 function campanhaCleanPhone(participant) {

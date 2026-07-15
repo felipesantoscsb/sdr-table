@@ -1,9 +1,9 @@
 // src/webhook/makeHandler.js
 // Processa leads do formulário Make → ativa o agente SDR.
 
-import { activateLead, addMessage, enqueueMessage, normalizePhone } from '../conversation/store.js';
+import { activateLead, addMessage, enqueueMessage, normalizePhone, setHandedOff } from '../conversation/store.js';
 import { generateFirstContact } from '../ai/anthropic.js';
-import { sendMessage, notifySDR } from '../zapi/sender.js';
+import { sendMessage, notifyManualHandoffBatch, notifySDR } from '../zapi/sender.js';
 import { garantirLeadCaptacaoNoHub, verificarElegibilidadeContatoSdr, bloqueioDefinitivoSdr } from '../hub/client.js';
 
 function dentroDoHorario() {
@@ -33,6 +33,20 @@ function normalizeLead(body) {
     dificuldade:      body['dificuldade']       || body['Maior dificuldade']|| '',
     source:           body['source']            || body['Source']           || '',
   };
+}
+
+function isNataliaSource(leadData = {}) {
+  const fields = [
+    leadData.source,
+    leadData.origin,
+    leadData.event_source_url,
+    leadData.url,
+    leadData.slug,
+    leadData.utm?.source,
+    leadData.utm?.campaign,
+  ].filter(Boolean).map(v => String(v).toLowerCase());
+
+  return fields.some(v => v.includes('natalia') || v.includes('natália') || v.includes('kelm'));
 }
 
 async function validateAndActivateLead(leadData, phone) {
@@ -89,6 +103,21 @@ async function finishLeadFirstContact(leadData, phone) {
   }
 }
 
+async function handoffNataliaLead(leadData, phone) {
+  await activateLead(phone, { ...leadData, _avisoNatalia: true });
+  await setHandedOff(phone);
+  await addMessage(phone, 'assistant', '[handoff manual: lead Natália Kelm]');
+  await notifyManualHandoffBatch({
+    title: '⚠️ *Lead Natália para ativação manual*',
+    leads: [{
+      ...leadData,
+      phone,
+      status: 'lead deve ser acionada manualmente pela Karina',
+      lastUser: '',
+    }],
+  });
+}
+
 function authWebhook(req, res) {
   const secret = req.headers['x-webhook-secret'] || req.body.secret;
   if (secret !== process.env.WEBHOOK_SECRET) {
@@ -120,6 +149,16 @@ export async function handleMakeLead(req, res) {
       return res.status(200).json({ received: true, activated: false, phone, reason: activation.reason });
     }
     return res.status(500).json({ received: true, activated: false, phone, reason: activation.reason });
+  }
+
+  if (isNataliaSource(leadData)) {
+    try {
+      await handoffNataliaLead(leadData, phone);
+      return res.status(200).json({ received: true, activated: false, manual_handoff: true, phone });
+    } catch (err) {
+      console.error(`❌ Erro ao gerar handoff manual Natália ${leadData.nome}:`, err.message);
+      return res.status(500).json({ received: true, activated: false, phone, reason: 'manual_handoff_failed' });
+    }
   }
 
   res.status(200).json({ received: true, activated: true, phone });
