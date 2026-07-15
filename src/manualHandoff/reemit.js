@@ -48,8 +48,29 @@ function lastUserMessage(conv) {
   return messages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
 }
 
+async function ensureRedisConnected(redis) {
+  if (redis.status === 'ready') return;
+  if (redis.status === 'wait') {
+    await redis.connect();
+    return;
+  }
+
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`Redis não conectado: ${redis.status}`)), 5000);
+    redis.once('ready', () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+    redis.once('error', (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+  });
+}
+
 async function scanConversationKeys() {
   const redis = getRedis();
+  await ensureRedisConnected(redis);
   let cursor = '0';
   const keys = [];
   do {
@@ -69,6 +90,7 @@ export async function collectManualHandoffLeads(options = {}) {
   } = options;
 
   const redis = getRedis();
+  await ensureRedisConnected(redis);
   const keys = await scanConversationKeys();
   const leads = [];
 
