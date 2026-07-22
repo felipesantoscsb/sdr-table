@@ -8,6 +8,7 @@ import { safeSet } from '../redis.js';
 import { normalizePhone } from '../conversation/store.js';
 import { scheduleDisparo } from '../disparos/handler.js';
 import { savePendingFollowup, FOLLOWUP_6H_ENABLED } from '../followup.js';
+import { scheduleQuizCadence } from '../quizCadence.js';
 
 function normalizeLead(body) {
   // "Perguntas e respostas" vem como string formatada do aquisicao-table:
@@ -67,6 +68,7 @@ export async function handleQuizLead(req, res) {
     await safeSet(`quiz:${phone}`, JSON.stringify(entry), 'EX', QUIZ_TTL_SEC);
     await savePendingFollowup(phone, entry);
   }
+  await scheduleQuizCadence(phone, entry);
 
   // Responde imediatamente — processamento é async
   res.status(200).json({ received: true, phone });

@@ -22,6 +22,13 @@ import {
   clearPendingFollowUps,
   FOLLOWUP_6H_ENABLED,
 } from './followup.js';
+import {
+  startQuizCadenceJob,
+  handleQuizCadenceCancel,
+  checkQuizCadence,
+  clearPendingQuizCadence,
+  QUIZ_CADENCE_ENABLED,
+} from './quizCadence.js';
 import { safeKeys, safeGet, safeSet, safeDel } from './redis.js';
 const redisGet = safeGet; // alias para clareza no recovery
 
@@ -44,6 +51,7 @@ app.post('/webhook/quiz-pre', handleQuizPre);
 app.post('/webhook/disparo', handleDisparo);
 app.post('/webhook/ticto', handleTicto);
 app.post('/webhook/campanha-registro', handleCampanhaRegistro);
+app.post('/webhook/quiz-cadence/cancel', handleQuizCadenceCancel);
 
 // Track link (follow-up)
 app.get('/track/:uuid', handleTrack);
@@ -186,6 +194,13 @@ async function recoverPendingTimers() {
     }
   }
 
+  // ── Cadência oficial pós-quiz pendente ─────────────────────────────────────
+  if (QUIZ_CADENCE_ENABLED) {
+    await checkQuizCadence();
+  } else {
+    await clearPendingQuizCadence();
+  }
+
   if (dossiesRecovered + followupsRecovered > 0) {
     console.log(`✅ [recovery] ${dossiesRecovered} dossiê(s) e ${followupsRecovered} follow-up(s) recuperados`);
   } else {
@@ -205,6 +220,7 @@ Endpoints:
   POST /webhook/disparo  → Dispara dossiê personalizado
   POST /webhook/ticto    → Webhook de compras da Ticto
   POST /webhook/campanha-registro → Registra participante de campanha sazonal (Hub)
+  POST /webhook/quiz-cadence/cancel → Cancela cadência pós-quiz
   GET  /track/:uuid      → Link de rastreio do follow-up
   GET  /health           → Status do servidor
   GET  /:file            → Propostas e dossiês gerados
@@ -216,6 +232,7 @@ Endpoints:
   } else {
     await clearPendingFollowUps();
   }
+  startQuizCadenceJob();
   recoverPendingTimers().catch(err => console.error('❌ Erro na recovery de timers:', err.message));
 
   setInterval(async () => {

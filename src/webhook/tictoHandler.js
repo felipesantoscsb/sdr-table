@@ -2,6 +2,7 @@
 
 import { safeGet, safeSet, safeDel } from '../redis.js';
 import { normalizePhone, setHandedOff } from '../conversation/store.js';
+import { cancelQuizCadence } from '../quizCadence.js';
 
 const COMPRA_TTL_SEC = 30 * 24 * 60 * 60; // 30 dias
 
@@ -44,6 +45,7 @@ export async function handleTicto(req, res) {
     await safeDel(`pending_dossie:${phone}`);
     await safeDel(`pending_followup:${phone}`);
     await safeDel(`followup:${phone}`);
+    await cancelQuizCadence(phone, 'purchase');
 
     // Track é keyed por uuid — resolve via índice phone→uuid e limpa
     const trackUuid = await safeGet(`followup_uuid:${phone}`);
