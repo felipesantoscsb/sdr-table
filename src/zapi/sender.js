@@ -2,6 +2,26 @@
 
 import axios from 'axios';
 import { config } from '../../config/index.js';
+import { getLeadData } from '../conversation/store.js';
+
+// Anexa a join key (sck = lead_event_id do quiz) aos links da Cakto na mensagem,
+// para que a compra feita por esse link seja atribuível ao anúncio via CAPI
+// (o webhook Cakto devolve data.sck → enrichFromLid puxa o fbc do lead). Sem
+// lead_event_id conhecido, o link segue sem sck — mesmo comportamento de antes.
+async function withCaktoSck(phone, message) {
+  try {
+    if (!/pay\.cakto\.com\.br\//.test(message)) return message;
+    const lead = await getLeadData(phone);
+    const sck = lead && lead.lead_event_id;
+    if (!sck) return message;
+    return message.replace(/https:\/\/pay\.cakto\.com\.br\/[A-Za-z0-9_]+(\?[^\s]*)?/g, function (url) {
+      if (/[?&]sck=/.test(url)) return url; // já tem sck
+      return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'sck=' + encodeURIComponent(sck);
+    });
+  } catch {
+    return message;
+  }
+}
 
 const zapiClient = axios.create({
   baseURL: config.zapi.baseUrl(),
@@ -31,12 +51,13 @@ async function sendToAll(message, options = {}) {
 
 export async function sendMessage(phone, message, options = {}) {
   try {
+    const outgoing = await withCaktoSck(phone, message);
     if (!options.skipDelay) {
-      const delay = typingDelay(message);
+      const delay = typingDelay(outgoing);
       console.log(`⏳ Aguardando ${Math.round(delay/1000)}s antes de enviar para ${phone}`);
       await sleep(delay);
     }
-    const response = await zapiClient.post('/send-text', { phone, message });
+    const response = await zapiClient.post('/send-text', { phone, message: outgoing });
     console.log(`✅ Mensagem enviada para ${phone}`);
     return response.data;
   } catch (error) {

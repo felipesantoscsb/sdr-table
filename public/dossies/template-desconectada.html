@@ -234,7 +234,7 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
 
     <div class="tc-mid-cta">
       <p class="tc-mid-cta-text">Já fez sentido pra você?</p>
-      <a href="https://checkout.ticto.app/O9E1D1B1F" class="tc-mid-cta-link" onclick="var _icId=crypto.randomUUID();var _ph=window._dossieCtx&&window._dossieCtx.ph_hash||window._dossiePhoneHashed;fbq('trackCustom','DossieCTA',{eventID:_icId,position:'mid'});fbq('track','InitiateCheckout',{content_name:'InitiateCheckout_Dossie',content_category:'dossie',currency:'BRL',value:97,ph:_ph,eventID:_icId});tcSend('https://www.evelynliu.com.br/api/capi/initiate-checkout',{phone:window._dossieCtx?null:window._dossiePhone,lid:window._dossieLid||undefined,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,content_name:'InitiateCheckout_Dossie',content_category:'dossie',position:'mid',event_id:_icId,perfil:'desconectada',event_source_url:window.location.href});">Acessar o Protocolo Raiz →</a>
+      <a href="https://pay.cakto.com.br/zdxagd6" class="tc-mid-cta-link" onclick="var _icId=crypto.randomUUID();var _ph=window._dossieCtx&&window._dossieCtx.ph_hash||window._dossiePhoneHashed;fbq('trackCustom','DossieCTA',{eventID:_icId,position:'mid'});fbq('track','InitiateCheckout',{content_name:'InitiateCheckout_Dossie',content_category:'dossie',currency:'BRL',value:97,ph:_ph,eventID:_icId});tcSend('https://www.evelynliu.com.br/api/capi/initiate-checkout',{phone:window._dossieCtx?null:window._dossiePhone,lid:window._dossieLid||undefined,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,content_name:'InitiateCheckout_Dossie',content_category:'dossie',position:'mid',event_id:_icId,perfil:'desconectada',event_source_url:window.location.href});">Acessar o Protocolo Raiz →</a>
     </div>
 
     <div class="tc-social-proof">
@@ -290,7 +290,7 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
 
       <p class="tc-garantia">Se em 7 dias você não sentir que está no caminho certo, <strong>devolvemos 100% — sem pergunta, sem burocracia.</strong></p>
 
-      <a href="https://checkout.ticto.app/O9E1D1B1F" class="tc-cta-btn" onclick="var _icId=crypto.randomUUID();var _ph=window._dossieCtx&&window._dossieCtx.ph_hash||window._dossiePhoneHashed;fbq('trackCustom','DossieCTA',{eventID:_icId,position:'final'});fbq('track','InitiateCheckout',{content_name:'InitiateCheckout_Dossie',content_category:'dossie',currency:'BRL',value:97,ph:_ph,eventID:_icId});tcSend('https://www.evelynliu.com.br/api/capi/initiate-checkout',{phone:window._dossieCtx?null:window._dossiePhone,lid:window._dossieLid||undefined,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,content_name:'InitiateCheckout_Dossie',content_category:'dossie',position:'final',event_id:_icId,perfil:'desconectada',event_source_url:window.location.href});">Quero o Protocolo Raiz →</a>
+      <a href="https://pay.cakto.com.br/zdxagd6" class="tc-cta-btn" onclick="var _icId=crypto.randomUUID();var _ph=window._dossieCtx&&window._dossieCtx.ph_hash||window._dossiePhoneHashed;fbq('trackCustom','DossieCTA',{eventID:_icId,position:'final'});fbq('track','InitiateCheckout',{content_name:'InitiateCheckout_Dossie',content_category:'dossie',currency:'BRL',value:97,ph:_ph,eventID:_icId});tcSend('https://www.evelynliu.com.br/api/capi/initiate-checkout',{phone:window._dossieCtx?null:window._dossiePhone,lid:window._dossieLid||undefined,fbp:window._dossieFbp,fbc:window._dossieFbc||undefined,content_name:'InitiateCheckout_Dossie',content_category:'dossie',position:'final',event_id:_icId,perfil:'desconectada',event_source_url:window.location.href});">Quero o Protocolo Raiz →</a>
     </div>
 
     <div class="tc-footer">Evelyn Liu · Protocolo Raiz</div>
@@ -300,8 +300,8 @@ document,'script','https://connect.facebook.net/en_US/fbevents.js');
 <script>
 (function(){
   if(!window._dossieLid) return;
-  document.querySelectorAll('a[href*="checkout.ticto.app"]').forEach(function(a){
-    try{var u=new URL(a.href);u.searchParams.set('src',window._dossieLid);a.href=u.toString();}catch(e){}
+  document.querySelectorAll('a[href*="pay.cakto.com.br"]').forEach(function(a){
+    try{var u=new URL(a.href);u.searchParams.set('sck',window._dossieLid);a.href=u.toString();}catch(e){}
   });
 })();
 </script>
