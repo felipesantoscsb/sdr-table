@@ -191,7 +191,7 @@ Responda APENAS em JSON válido. Sem texto antes ou depois. Sem blocos de códig
   }
 }
 
-export async function generateReply(phone, newMessage, history, leadData) {
+export async function generateReply(phone, newMessage, history, leadData, mode = 'sdr') {
   const scoreVal = leadData.qualificacao?.score ?? leadData.score ?? '?';
   const tierVal = leadData.qualificacao?.tier || leadData.temperatura || '?';
 
@@ -200,7 +200,34 @@ export async function generateReply(phone, newMessage, history, leadData) {
     { role: 'user', content: newMessage },
   ];
 
-  const contextPrompt = `
+  const isRecovery = mode === 'recovery';
+  const rec = leadData.recovery || {};
+
+  // Modo recovery: conduz pelo prompt de recuperação, foco em fechar a venda.
+  // handoff SEMPRE false (não agenda pré-consulta — isso desvalorizaria o
+  // produto, já que a sessão individual já está inclusa no Protocolo Raiz).
+  const contextPrompt = isRecovery ? `
+Contexto: recuperação de checkout do Protocolo Raiz. A lead começou a compra e não
+finalizou; você está reengajando para que ela conclua.
+Nome: ${leadData.nome || 'não informado'}
+${rec.checkout_url ? `Link do checkout: ${rec.checkout_url}` : ''}
+${rec.pix_code ? `Pix copia-e-cola: ${rec.pix_code}` : ''}
+
+A lead acabou de responder. Gere a próxima mensagem, mirando fechar a venda do
+Protocolo Raiz. NÃO agende pré-consulta, NÃO ofereça nada grátis, NÃO dê desconto.
+
+Responda APENAS em JSON válido. Sem texto antes ou depois. Sem blocos de código:
+{
+  "leadMessage": "próxima mensagem para enviar à lead",
+  "sdrBriefing": "situação atual em 2-3 linhas",
+  "handoff": false,
+  "handoffTurno": "",
+  "redflag": false,
+  "redflagMotivo": ""
+}
+
+NUNCA defina handoff: true neste modo (recuperação não agenda pré-consulta).
+Se detectar crise emocional grave ou teor suicida, defina redflag: true.` : `
 Contexto da lead:
 Nome: ${leadData.nome}
 Score: ${scoreVal}/10
@@ -227,7 +254,7 @@ Se detectar crise emocional grave ou teor suicida, defina redflag: true.`;
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5',
     max_tokens: 1000,
-    system: SYSTEM_PROMPT,
+    system: isRecovery ? RECUPERACAO_PROMPT : SYSTEM_PROMPT,
     messages: [
       ...messages,
       { role: 'user', content: contextPrompt }

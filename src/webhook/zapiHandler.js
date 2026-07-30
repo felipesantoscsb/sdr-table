@@ -1,6 +1,6 @@
 // src/webhook/zapiHandler.js
 
-import { isActiveLead, isHandedOff, setHandedOff, addMessage, getHistory, getLeadData, getSdrHistory, addSdrMessage, incrementTurn, getTurnCount, TURN_LIMIT, enqueueMessage, dequeueMessages, normalizePhone, deactivateLead } from '../conversation/store.js';
+import { isActiveLead, isHandedOff, setHandedOff, addMessage, getHistory, getLeadData, getSdrHistory, addSdrMessage, incrementTurn, getTurnCount, TURN_LIMIT, enqueueMessage, dequeueMessages, normalizePhone, deactivateLead, getConversationMode } from '../conversation/store.js';
 import { aggregate } from '../conversation/aggregator.js';
 import { generateReply, generateHandoffBriefing, generateConsultivo, generateFirstContact } from '../ai/anthropic.js';
 import { sendMessage, notifySDR, notifySDRHandoff, notifySDRRedflag, notifySDRTurnLimit, notifyError } from '../zapi/sender.js';
@@ -237,7 +237,8 @@ async function processAggregatedMessages(phone, combinedMessage) {
       return;
     }
 
-    const result = await generateReply(phone, combinedMessage, history, leadData);
+    const mode = await getConversationMode(phone);
+    const result = await generateReply(phone, combinedMessage, history, leadData, mode);
 
     if (result.redflag) {
       console.log(`🚨 Red flag detectado para ${phone}`);

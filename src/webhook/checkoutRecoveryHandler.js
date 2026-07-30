@@ -7,7 +7,7 @@
 
 import { generateRecoveryMessage } from '../ai/anthropic.js';
 import { sendMessage } from '../zapi/sender.js';
-import { addMessage, getLeadData } from '../conversation/store.js';
+import { addMessage, getLeadData, setRecoveryMode } from '../conversation/store.js';
 
 export async function handleCheckoutRecovery(req, res) {
   const token = req.headers['x-recovery-token'];
@@ -32,6 +32,16 @@ export async function handleCheckoutRecovery(req, res) {
       console.error('[Recovery-SDR] mensagem vazia — nada enviado.');
       return;
     }
+
+    // Ativa a conversa em modo recovery ANTES de registrar a mensagem, para que
+    // eventuais respostas da lead sejam conduzidas pelo prompt de recuperação
+    // (nunca cai no sdr.txt, que tentaria agendar pré-consulta).
+    await setRecoveryMode(p.phone, {
+      nome: p.name || null,
+      whats: p.phone,
+      source: 'checkout_recovery',
+      recovery: { pix_code: p.pix_code || null, checkout_url: p.checkout_url || null, stage: p.stage || null },
+    }).catch(() => {});
 
     // sendMessage já anexa ?sck aos links Cakto (atribuição) e aplica delay humano.
     await sendMessage(p.phone, message);

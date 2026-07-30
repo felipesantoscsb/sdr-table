@@ -78,6 +78,27 @@ export async function getLeadData(phone) {
   return conv.leadData;
 }
 
+// Modo da conversa: 'sdr' (padrão) ou 'recovery' (recuperação de checkout).
+// No modo recovery o agente usa o prompt de recuperação e NUNCA agenda
+// pré-consulta — foco é fechar a venda do Protocolo Raiz.
+export async function getConversationMode(phone) {
+  const conv = await getConv(phone);
+  return conv.mode || 'sdr';
+}
+
+// Ativa a conversa em modo recovery para que as respostas da lead sejam
+// conduzidas pelo prompt de recuperação. Preserva leadData existente e mescla
+// os dados do checkout (pix/link) recebidos do aquisicao-table.
+export async function setRecoveryMode(phone, leadData) {
+  const conv = await getConv(phone);
+  conv.isActiveLead = true;
+  conv.handedOff = false;
+  conv.mode = 'recovery';
+  conv.leadData = { ...(conv.leadData || {}), ...(leadData || {}) };
+  await saveConv(phone, conv);
+  await safeSet(PREFIX.lastSeen + normalizePhone(phone), Date.now());
+}
+
 export async function isHandedOff(phone) {
   const conv = await getConv(phone);
   return conv.handedOff;
