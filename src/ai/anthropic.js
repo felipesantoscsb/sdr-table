@@ -19,6 +19,42 @@ const CONSULTIVO_PROMPT = readFileSync(
   'utf-8'
 );
 
+const RECUPERACAO_PROMPT = readFileSync(
+  join(__dirname, '../../config/prompts/recuperacao-checkout.txt'),
+  'utf-8'
+);
+
+// Gera a mensagem humanizada de recuperação de checkout (Karina). Retorna TEXTO
+// puro (não JSON) — é a 1ª mensagem que abre a conversa. Respostas subsequentes
+// da lead são conduzidas pelo mesmo RECUPERACAO_PROMPT no fluxo do agente.
+export async function generateRecoveryMessage(payload) {
+  const { name, stage, touch, pix_code, pix_expiration, checkout_url, perfil } = payload || {};
+  const temPix = stage === 'waiting_payment' && pix_code;
+
+  const userPrompt = `
+Contexto da recuperação de checkout (gere APENAS a mensagem de WhatsApp, texto puro,
+sem aspas e sem explicação):
+
+Nome: ${name || 'não informado'}
+Situação: ${temPix ? 'gerou o pix e ainda não pagou' : 'abriu o checkout e não finalizou (sem pix gerado)'}
+Toque: ${touch === 2 ? '2 (o pix está perto de expirar — reforce com gentileza que a validade é curta e ofereça o link/pix de novo)' : '1 (primeiro contato)'}
+Perfil emocional: ${perfil || 'não informado'}
+Link do checkout: ${checkout_url || 'não informado'}
+${temPix ? `Pix copia-e-cola: ${pix_code}` : ''}
+${temPix && pix_expiration ? `O pix expira em: ${pix_expiration}` : ''}
+
+Regras da mensagem: curta, calorosa, uma pergunta só, sem parecer robô. ${temPix ? 'Inclua o link do checkout e o pix copia-e-cola.' : 'Inclua o link do checkout e pergunte se ficou alguma dúvida.'}`;
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 800,
+    system: RECUPERACAO_PROMPT,
+    messages: [{ role: 'user', content: userPrompt }],
+  });
+
+  return (response.content[0]?.text || '').trim();
+}
+
 export async function generateFirstContact(leadData) {
   const {
     nome, whatsapp, whats, temperatura, score,

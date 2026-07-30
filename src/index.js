@@ -13,6 +13,7 @@ import { handleDisparo, fireDossie, DOSSIE_WHATSAPP_ENABLED } from './disparos/h
 import { gerarDossie } from './disparos/gerador.js';
 import { handleTrack } from './webhook/trackHandler.js';
 import { handleTicto } from './webhook/tictoHandler.js';
+import { handleCheckoutRecovery } from './webhook/checkoutRecoveryHandler.js';
 import { handleCampanhaRegistro } from './campanha/handler.js';
 import { getPhonesWithQueue } from './conversation/store.js';
 import {
@@ -50,6 +51,7 @@ app.post('/webhook/zapi', handleZapiMessage);
 app.post('/webhook/quiz-pre', handleQuizPre);
 app.post('/webhook/disparo', handleDisparo);
 app.post('/webhook/ticto', handleTicto);
+app.post('/webhook/checkout-recovery', handleCheckoutRecovery);
 app.post('/webhook/campanha-registro', handleCampanhaRegistro);
 app.post('/webhook/quiz-cadence/cancel', handleQuizCadenceCancel);
 
