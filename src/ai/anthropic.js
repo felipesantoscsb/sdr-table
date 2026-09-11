@@ -24,6 +24,11 @@ const RECUPERACAO_PROMPT = readFileSync(
   'utf-8'
 );
 
+const REATIVACAO_PROMPT = readFileSync(
+  join(__dirname, '../../config/prompts/reativacao.txt'),
+  'utf-8'
+);
+
 // Gera a mensagem humanizada de recuperação de checkout (Karina). Retorna TEXTO
 // puro (não JSON) — é a 1ª mensagem que abre a conversa. Respostas subsequentes
 // da lead são conduzidas pelo mesmo RECUPERACAO_PROMPT no fluxo do agente.
@@ -49,6 +54,43 @@ Regras da mensagem: curta, calorosa, uma pergunta só, sem parecer robô. ${temP
     model: 'claude-sonnet-4-5',
     max_tokens: 800,
     system: RECUPERACAO_PROMPT,
+    messages: [{ role: 'user', content: userPrompt }],
+  });
+
+  return (response.content[0]?.text || '').trim();
+}
+
+// Primeira mensagem da reativação. Texto puro (não JSON): é ela que abre a
+// conversa. As respostas seguintes são conduzidas pelo MESMO REATIVACAO_PROMPT
+// dentro do fluxo normal do agente, via conv.mode='reativacao'.
+//
+// O contexto do Hub (score, persona, briefing) entra aqui para ORIENTAR a
+// pergunta de abertura — nunca para ser recitado à lead. O prompt é explícito
+// sobre isso; este comentário existe para quem for mexer depois não afrouxar.
+export async function generateReactivationMessage(payload) {
+  const {
+    nome, persona, briefing, ultimoContato, motivoPerda,
+    icpScore, recomendacao,
+  } = payload || {};
+
+  const userPrompt = `
+Gere APENAS a primeira mensagem de WhatsApp (texto puro, sem aspas, sem explicação).
+
+Nome: ${nome || 'não informado'}
+Última conversa com a equipe: ${ultimoContato || 'não informado'}
+Persona provável: ${persona || 'não identificada'}
+${motivoPerda ? `Motivo registrado na época: ${motivoPerda}` : ''}
+${briefing ? `Contexto interno (NÃO repetir para ela): ${briefing}` : ''}
+${icpScore != null ? `Fit interno: ${icpScore}/100${recomendacao ? ` — hipótese de entrega: ${recomendacao}` : ''}` : ''}
+
+A mensagem deve: cumprimentar pelo nome, lembrar com leveza que já se falaram (SEM
+detalhar o que ela contou), e fazer UMA pergunta aberta sobre como ela está agora.
+Curta, calorosa, sem cobrança e sem mencionar que ela "não fechou".`;
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 600,
+    system: REATIVACAO_PROMPT,
     messages: [{ role: 'user', content: userPrompt }],
   });
 
@@ -260,7 +302,8 @@ Se detectar crise emocional grave ou teor suicida, defina redflag: true.`;
   const response = await client.messages.create({
     model: 'claude-sonnet-4-5',
     max_tokens: 1000,
-    system: isRecovery ? RECUPERACAO_PROMPT : SYSTEM_PROMPT,
+    system: mode === 'reativacao' ? REATIVACAO_PROMPT
+      : isRecovery ? RECUPERACAO_PROMPT : SYSTEM_PROMPT,
     messages: [
       ...messages,
       { role: 'user', content: contextPrompt }

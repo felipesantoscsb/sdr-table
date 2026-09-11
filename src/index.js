@@ -15,6 +15,7 @@ import { handleTrack } from './webhook/trackHandler.js';
 import { handleTicto } from './webhook/tictoHandler.js';
 import { handleCheckoutRecovery } from './webhook/checkoutRecoveryHandler.js';
 import { handleCampanhaRegistro } from './campanha/handler.js';
+import { handleReativacaoRegistro } from './reativacao/handler.js';
 import { getPhonesWithQueue } from './conversation/store.js';
 import {
   startFollowUpJob,
@@ -56,6 +57,7 @@ app.post('/webhook/disparo', handleDisparo);
 app.post('/webhook/ticto', handleTicto);
 app.post('/webhook/checkout-recovery', handleCheckoutRecovery);
 app.post('/webhook/campanha-registro', handleCampanhaRegistro);
+app.post('/webhook/reativacao', handleReativacaoRegistro);
 app.post('/webhook/quiz-cadence/cancel', handleQuizCadenceCancel);
 app.post('/webhook/evelyn-page-event',async(req,res)=>{const {slug,event_type}=req.body||{};const allowed=['evelyn_journey_opened','evelyn_journey_radar_viewed','evelyn_journey_90days_viewed','evelyn_journey_evelyn_viewed','evelyn_journey_investment_viewed','evelyn_journey_checkout_clicked'];if(!/^evelyn-[0-9a-f-]{36}$/.test(String(slug))||!allowed.includes(event_type))return res.status(400).json({ok:false});const meta=await getEvelynJourneyMeta(slug);if(!meta)return res.status(404).json({ok:false});res.json({ok:true});registrarEventoEvelyn({eventId:`${slug}:${event_type}`,eventType:event_type,phone:meta.phone,leadData:meta.leadData,payload:{journey_url:`${config.evelyn.journeyBaseUrl.replace(/\/$/,'')}/evelyn/${slug}`}}).catch(()=>{});});
 app.get('/evelyn/exemplo',(req,res)=>res.redirect('/evelyn/exemplo/emocional'));

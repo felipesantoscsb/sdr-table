@@ -123,6 +123,26 @@ export async function getConversationMode(phone) {
 // Ativa a conversa em modo recovery para que as respostas da lead sejam
 // conduzidas pelo prompt de recuperação. Preserva leadData existente e mescla
 // os dados do checkout (pix/link) recebidos do aquisicao-table.
+// Ativa a conversa em modo reativação: as respostas da lead passam a ser
+// conduzidas pelo prompt de reativação, dentro do fluxo normal do agente.
+// Diferente da campanha sazonal, que intercepta a resposta e entrega para a
+// Karina, aqui o agente conduz — a equipe só monitora e assume no handoff.
+// Respeita bloqueio e opt-out: quem pediu para não receber não entra, ponto.
+export async function setReactivationMode(phone, leadData) {
+  if (await isBlocked(phone)) {
+    console.log(`⛔ Reativação ignorada: ${normalizePhone(phone)} está bloqueado`);
+    return false;
+  }
+  const conv = await getConv(phone);
+  conv.isActiveLead = true;
+  conv.handedOff = false;
+  conv.mode = 'reativacao';
+  conv.leadData = { ...(conv.leadData || {}), ...(leadData || {}) };
+  await saveConv(phone, conv);
+  await safeSet(PREFIX.lastSeen + normalizePhone(phone), Date.now());
+  return true;
+}
+
 export async function setRecoveryMode(phone, leadData) {
   if (await isBlocked(phone)) {
     console.log(`⛔ Recovery ignorado: ${normalizePhone(phone)} está bloqueado`);
