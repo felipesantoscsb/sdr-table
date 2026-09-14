@@ -127,6 +127,33 @@ export async function notifySDRHandoff(leadData, turno, handoffBriefing) {
   await sendToAll(lines.join('\n'), { skipDelay: true });
 }
 
+// Handoff de RETOMADA. Visual deliberadamente diferente do handoff normal:
+// a Karina precisa bater o olho e saber que é uma lead antiga voltando, não
+// uma pré-consulta nova. O agente conduz até a abertura e para aqui — ele não
+// tem o link da oferta nem o histórico da conversa antiga, então tentar fechar
+// sozinho seria pior que passar a bola.
+export async function notifySDRRetomada(leadData, briefing, ctx = {}) {
+  const cleanPhone = (leadData.whatsapp || leadData.whats || '').replace(/\D/g, '');
+  const icp = ctx.icpScore != null ? `${ctx.icpScore}/100` : '—';
+
+  const lines = [
+    `🔁 *RETOMADA — LEAD ANTIGA QUER VOLTAR*`,
+    ``,
+    `👤 *${leadData.nome || 'Sem nome'}*`,
+    `🎯 Fit ICP: ${icp}${ctx.persona ? ` · ${ctx.persona}` : ''}`,
+    ctx.recomendacao ? `💡 Hipótese de entrega: ${ctx.recomendacao}` : null,
+    ctx.motivoPerda ? `📌 Na época: ${ctx.motivoPerda}` : null,
+    ``,
+    `📋 *O que ela trouxe agora:*`,
+    briefing,
+    ``,
+    `⚠️ Ela já conhece a Table — não recomece do zero.`,
+    `🔗 https://wa.me/${cleanPhone}`,
+  ].filter(l => l !== null);
+
+  await sendToAll(lines.join('\n'), { skipDelay: true });
+}
+
 export async function notifySDRRedflag(leadData, motivo) {
   const cleanPhone = (leadData.whatsapp || leadData.whats || '').replace(/\D/g, '');
 

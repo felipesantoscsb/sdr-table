@@ -3,7 +3,7 @@
 import { isActiveLead, isHandedOff, setHandedOff, blockPhone, unblockPhone, isBlocked, addMessage, getHistory, getLeadData, getSdrHistory, addSdrMessage, incrementTurn, getTurnCount, TURN_LIMIT, enqueueMessage, dequeueMessages, normalizePhone, deactivateLead, getConversationMode, getCommercialState, setCommercialState } from '../conversation/store.js';
 import { aggregate } from '../conversation/aggregator.js';
 import { generateReply, generateHandoffBriefing, generateConsultivo, generateFirstContact } from '../ai/anthropic.js';
-import { sendMessage, notifySDR, notifySDRHandoff, notifySDRRedflag, notifySDRTurnLimit, notifyError } from '../zapi/sender.js';
+import { sendMessage, notifySDR, notifySDRHandoff, notifySDRRetomada, notifySDRRedflag, notifySDRTurnLimit, notifyError } from '../zapi/sender.js';
 import { handlePlanoCommand } from '../planos/handler.js';
 import { getQuizPreData } from './quizPreHandler.js';
 import { activateLead } from '../conversation/store.js';
@@ -300,11 +300,21 @@ async function processAggregatedMessages(phone, combinedMessage) {
     }
 
     if (result.handoff) {
-      console.log(`🟢 Handoff ativado para ${phone}`);
       await addMessage(phone, 'assistant', result.leadMessage);
       await sendMessage(phone, result.leadMessage);
       await setHandedOff(phone);
       const handoffBriefing = await generateHandoffBriefing(leadData, await getHistory(phone), result.handoffTurno);
+
+      // Retomada é sinalizada diferente e NÃO migra card: essa lead já tem card
+      // de pré-consulta no Hub. O que a Karina precisa é assumir a conversa com
+      // o contexto, não um card novo.
+      if (mode === 'reativacao') {
+        console.log(`🔁 Retomada — handoff para a Karina: ${phone}`);
+        await notifySDRRetomada(leadData, handoffBriefing, leadData.reativacao || {});
+        return;
+      }
+
+      console.log(`🟢 Handoff ativado para ${phone}`);
       await notifySDRHandoff(leadData, result.handoffTurno, handoffBriefing);
       // Migra o card de captação para pré-consulta / "A Agendar" no Hub (igual ao Protocolo Raiz).
       // Fire-and-forget: nunca deve bloquear nem quebrar o handoff para a Karina.
