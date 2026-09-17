@@ -42,6 +42,26 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+export function getSendErrorDetail(error) {
+  const data = error?.response?.data;
+  if (typeof data === 'string' && data.trim()) return data.trim();
+  if (data?.error && typeof data.error === 'string') return data.error;
+  if (data?.message && typeof data.message === 'string') return data.message;
+  if (data) {
+    try { return JSON.stringify(data); } catch { /* usa a mensagem abaixo */ }
+  }
+  return error?.message || 'Erro desconhecido no envio';
+}
+
+function requireNonEmptyMessage(message) {
+  if (typeof message !== 'string' || !message.trim()) {
+    const error = new Error('Mensagem vazia bloqueada antes do envio');
+    error.code = 'EMPTY_OUTGOING_MESSAGE';
+    throw error;
+  }
+  return message.trim();
+}
+
 async function sendToAll(message, options = {}) {
   await sendMessage(config.sdr.phone, message, options);
   if (process.env.NUMERO_BACKUP) {
@@ -61,13 +81,16 @@ function isProtectedPhone(phone) {
 
 export async function sendMessage(phone, message, options = {}) {
   try {
+    // Valida antes de consultar Redis, esperar o typing delay ou tocar na API.
+    // Assim um bug de geração nunca vira uma requisição 400 na Z-API.
+    const validMessage = requireNonEmptyMessage(message);
     // Último guard antes do envio: cobre qualquer caminho (agente, follow-up,
     // disparo, recuperação de checkout) sem depender de cada chamador lembrar.
     if (!isProtectedPhone(phone) && await isBlocked(phone)) {
       console.log(`⛔ Envio cancelado para ${phone} (número bloqueado)`);
       return null;
     }
-    const outgoing = await withCaktoSck(phone, message);
+    const outgoing = requireNonEmptyMessage(await withCaktoSck(phone, validMessage));
     if (!options.skipDelay) {
       const delay = typingDelay(outgoing);
       console.log(`⏳ Aguardando ${Math.round(delay/1000)}s antes de enviar para ${phone}`);
@@ -77,7 +100,8 @@ export async function sendMessage(phone, message, options = {}) {
     console.log(`✅ Mensagem enviada para ${phone}`);
     return response.data;
   } catch (error) {
-    const detail = error.response?.data || error.message;
+    const detail = getSendErrorDetail(error);
+    error.deliveryDetail = detail;
     console.error(`❌ Erro ao enviar para ${phone}:`, detail);
     throw error;
   }
@@ -284,6 +308,20 @@ export async function notifyError(phone, errorMessage) {
     `❌ Erro: ${errorMessage}`,
     ``,
     `Verifique a conversa e responda manualmente se necessário.`,
+    `🔗 https://wa.me/${phone}`,
+  ];
+
+  await sendToAll(lines.join('\n'), { skipDelay: true });
+}
+
+export async function notifySDRManualReview(phone, briefing) {
+  const lines = [
+    `⚠️ *CONVERSA PAUSADA PARA REVISÃO*`,
+    ``,
+    `📱 Número: ${phone}`,
+    `📋 ${briefing}`,
+    ``,
+    `A lead recebeu uma mensagem de continuidade. Assuma a conversa quando possível.`,
     `🔗 https://wa.me/${phone}`,
   ];
 

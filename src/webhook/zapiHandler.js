@@ -3,7 +3,7 @@
 import { isActiveLead, isHandedOff, setHandedOff, blockPhone, unblockPhone, isBlocked, addMessage, getHistory, getLeadData, getSdrHistory, addSdrMessage, incrementTurn, getTurnCount, TURN_LIMIT, enqueueMessage, dequeueMessages, normalizePhone, deactivateLead, getConversationMode, getCommercialState, setCommercialState } from '../conversation/store.js';
 import { aggregate } from '../conversation/aggregator.js';
 import { generateReply, generateHandoffBriefing, generateConsultivo, generateFirstContact } from '../ai/anthropic.js';
-import { sendMessage, notifySDR, notifySDRHandoff, notifySDRRetomada, notifySDRRedflag, notifySDRTurnLimit, notifyError } from '../zapi/sender.js';
+import { sendMessage, notifySDR, notifySDRHandoff, notifySDRRetomada, notifySDRRedflag, notifySDRTurnLimit, notifyError, notifySDRManualReview, getSendErrorDetail } from '../zapi/sender.js';
 import { handlePlanoCommand } from '../planos/handler.js';
 import { getQuizPreData } from './quizPreHandler.js';
 import { activateLead } from '../conversation/store.js';
@@ -292,6 +292,15 @@ async function processAggregatedMessages(phone, combinedMessage) {
       if(result.evelynEvent==='evelyn_routed_to_table')migrarParaPreConsulta({leadData,phone,turno:null,briefing:'Lead retornou naturalmente do branch Evelyn para avaliação pela pré-consulta Table.'}).catch(()=>{});
     }
 
+    if (result.needsManualReview) {
+      console.warn(`⚠️ Pausando ${phone} para revisão manual após respostas inválidas da IA`);
+      await sendMessage(phone, result.leadMessage);
+      await addMessage(phone, 'assistant', result.leadMessage);
+      await setHandedOff(phone);
+      await notifySDRManualReview(phone, result.sdrBriefing);
+      return;
+    }
+
     if (result.redflag) {
       console.log(`🚨 Red flag detectado para ${phone}`);
       await setHandedOff(phone);
@@ -300,8 +309,8 @@ async function processAggregatedMessages(phone, combinedMessage) {
     }
 
     if (result.handoff) {
-      await addMessage(phone, 'assistant', result.leadMessage);
       await sendMessage(phone, result.leadMessage);
+      await addMessage(phone, 'assistant', result.leadMessage);
       await setHandedOff(phone);
       const handoffBriefing = await generateHandoffBriefing(leadData, await getHistory(phone), result.handoffTurno);
 
@@ -323,11 +332,11 @@ async function processAggregatedMessages(phone, combinedMessage) {
       return;
     }
 
-    await addMessage(phone, 'assistant', result.leadMessage);
     await sendMessage(phone, result.leadMessage);
+    await addMessage(phone, 'assistant', result.leadMessage);
 
   } catch (err) {
     console.error(`❌ Erro ao processar resposta para ${phone}:`, err.message);
-    await notifyError(phone, err.message);
+    await notifyError(phone, getSendErrorDetail(err));
   }
 }

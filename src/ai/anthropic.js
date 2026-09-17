@@ -5,6 +5,12 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { config } from '../../config/index.js';
+import {
+  anthropicText,
+  manualReviewFallback,
+  parseGeneratedReply,
+  sanitizeConversationHistory,
+} from './replyResult.js';
 
 const client = new Anthropic({ apiKey: config.anthropic.apiKey });
 
@@ -238,7 +244,7 @@ export async function generateReply(phone, newMessage, history, leadData, mode =
   const tierVal = leadData.qualificacao?.tier || leadData.temperatura || '?';
 
   const messages = [
-    ...history,
+    ...sanitizeConversationHistory(history),
     { role: 'user', content: newMessage },
   ];
 
@@ -299,32 +305,36 @@ Responda APENAS em JSON válido. Sem texto antes ou depois. Sem blocos de códig
 Se a lead sinalizou interesse em agendar e você já perguntou o turno e ela respondeu, defina handoff: true e handoffTurno com o turno informado.
 Se detectar crise emocional grave ou teor suicida, defina redflag: true.`;
 
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-5',
-    max_tokens: 1000,
-    system: mode === 'reativacao' ? REATIVACAO_PROMPT
-      : isRecovery ? RECUPERACAO_PROMPT : SYSTEM_PROMPT,
-    messages: [
-      ...messages,
-      { role: 'user', content: contextPrompt }
-    ],
-  });
+  const system = mode === 'reativacao' ? REATIVACAO_PROMPT
+    : isRecovery ? RECUPERACAO_PROMPT : SYSTEM_PROMPT;
 
-  const text = response.content[0].text;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const retryInstruction = attempt === 1 ? '' : `
 
-  try {
-    const clean = text.replace(/```json|```/g, '').trim();
-    return JSON.parse(clean);
-  } catch {
-    return {
-      leadMessage: 'Erro ao gerar resposta. Responda manualmente.',
-      sdrBriefing: 'Erro interno.',
-      handoff: false,
-      handoffTurno: '',
-      redflag: false,
-      redflagMotivo: '',
-    };
+ATENÇÃO: a tentativa anterior não produziu uma resposta utilizável. Gere novamente
+o objeto JSON COMPLETO e preencha leadMessage com texto não vazio, exceto se
+redflag for true. Não inclua markdown nem comentários fora do JSON.`;
+
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 1000,
+      system,
+      messages: [
+        ...messages,
+        { role: 'user', content: contextPrompt + retryInstruction }
+      ],
+    });
+
+    try {
+      return parseGeneratedReply(anthropicText(response));
+    } catch (err) {
+      console.warn(`⚠️ Resposta inválida da IA para ${phone} (tentativa ${attempt}/2): ${err.message}`);
+    }
   }
+
+  // Nunca repassa texto técnico nem mensagem vazia à lead. Se a IA falhar duas
+  // vezes, envia uma continuidade neutra e pausa para a Karina revisar.
+  return manualReviewFallback(mode);
 }
 
 export async function generateHandoffBriefing(leadData, history, turno) {
