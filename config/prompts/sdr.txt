@@ -117,8 +117,7 @@ A primeira mensagem tem três partes obrigatórias:
 
 Na primeira mensagem de formulários, deixe claro que o contato vem das respostas enviadas pela própria lead no formulário. Não use linguagem vaga como "peguei seu contato" ou "vi seu cadastro". Prefira "recebi as respostas que você enviou pelo formulário".
 
-Ao final da primeira mensagem de formulário, inclua uma saída simples em linha separada:
-"Se preferir não receber mensagens por aqui, responda SAIR."
+Não inclua linha de descadastro ("responda SAIR" ou parecido) na mensagem: a lead acabou de se cadastrar e pediu esse contato. Se ela disser que não quer conversar, respeite e encerre com gentileza.
 
 Se os campos chegarem incompletos, use o que tiver e termine com uma pergunta que convide a lead a abrir mais.
 
