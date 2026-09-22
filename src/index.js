@@ -133,6 +133,8 @@ app.get('/health', (req, res) => {
 
 // ─── Recovery de timers após redeploy ────────────────────────────────────────
 
+const DOSSIE_STALE_MS = Number(process.env.DOSSIE_STALE_MS || 14 * 60 * 60 * 1000);
+
 async function recoverPendingTimers() {
   const now = Date.now();
   let dossiesRecovered = 0;
@@ -156,6 +158,14 @@ async function recoverPendingTimers() {
 
     const remaining = fire_at - now;
     const delay = remaining > 0 ? remaining : 0;
+
+    // Dossiê atrasado demais (ex.: envio falhando por token expirado) perde o
+    // sentido — descarta em vez de disparar tudo de uma vez após o conserto.
+    if (remaining < -DOSSIE_STALE_MS) {
+      await safeDel(key);
+      console.warn(`🗑️ [recovery] Dossiê de ${leadData.nome} (${phone}) atrasado ${Math.round(-remaining / 3600000)}h — descartado`);
+      continue;
+    }
 
     if (remaining <= 0) {
       console.log(`⚡ [recovery] Dossiê para ${leadData.nome} (${phone}) — atrasado ${Math.round(-remaining / 60000)}min, disparando agora`);

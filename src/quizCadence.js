@@ -6,6 +6,8 @@ import { normalizePhone, isBlocked } from './conversation/store.js';
 const CHECK_INTERVAL_MS = 60 * 1000;
 const CADENCE_TTL_SEC = 7 * 24 * 60 * 60;
 const LOCK_TTL_SEC = 10 * 60;
+// Atraso máximo tolerado para um passo da cadência (cobre noite/fim de semana).
+const STALE_MS = Number(process.env.QUIZ_CADENCE_STALE_MS || 18 * 60 * 60 * 1000);
 
 export const QUIZ_CADENCE_ENABLED = process.env.QUIZ_CADENCE_ENABLED === 'true';
 
@@ -170,6 +172,14 @@ export async function checkQuizCadence() {
       try { pending = JSON.parse(raw); } catch { continue; }
 
       if (!pending.fire_at || pending.fire_at > now) continue;
+      // Pendência vencida há muito (ex.: envio falhando por token expirado):
+      // descarta em vez de despejar mensagens fora de contexto quando o
+      // envio volta a funcionar.
+      if (now - pending.fire_at > STALE_MS) {
+        await safeDel(key);
+        console.warn(`🗑️ [quiz-cadence] pendência vencida há ${Math.round((now - pending.fire_at) / 3600000)}h descartada: ${pending.phone} step ${pending.stepIndex}`);
+        continue;
+      }
       if (!dentroDoHorario()) continue;
 
       await fireQuizCadenceStep(pending.phone, pending.stepIndex);
