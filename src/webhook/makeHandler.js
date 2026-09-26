@@ -82,9 +82,17 @@ async function validateAndActivateLead(leadData, phone) {
   return { ok: true };
 }
 
+// O aviso ao time vem ANTES do envio para a lead, e o catch avisa em vez de
+// engolir. Antes, notifySDR era a ultima linha de um try cujo catch so logava:
+// numero invalido no formulario (ou erro da IA) derrubava o envio, matava o
+// aviso junto e o lead sumia em silencio. Lead que entra e ninguem ve e lead
+// perdido, entao a ordem certa e: saber que existe primeiro, tentar falar com
+// ela depois.
 async function finishLeadFirstContact(leadData, phone) {
+  let briefing = null;
   try {
     const result = await generateFirstContact(leadData);
+    briefing = result.sdrBriefing;
 
     leadData._monitorarDePerto = result.orientacao?.monitorarDePerto || false;
     leadData._avisoNatalia = result.avisoNatalia || false;
@@ -93,19 +101,48 @@ async function finishLeadFirstContact(leadData, phone) {
     await activateLead(phone, leadData);
     await addMessage(phone, 'assistant', result.leadMessage);
 
+    // Avisa o time ANTES de tentar falar com a lead. Se o aviso falhar, nao
+    // pode impedir o primeiro contato — por isso vai isolado.
+    await notifySDR(leadData, result.sdrBriefing).catch(err =>
+      console.error(`❌ Falha ao notificar sobre ${leadData.nome}:`, err.message));
+
     if (!dentroDoHorario()) {
       console.log(`⏰ Lead ${leadData.nome} fora do horário — mensagem enfileirada`);
       await enqueueMessage(phone, `__PRIMEIRA_MENSAGEM__${result.leadMessage}`);
-      await notifySDR(leadData, result.sdrBriefing);
       return;
     }
 
     await sendMessage(phone, result.leadMessage);
-    await notifySDR(leadData, result.sdrBriefing);
-
     console.log(`✅ Lead ${leadData.nome} processado`);
   } catch (err) {
     console.error(`❌ Erro ao processar lead ${leadData.nome}:`, err.message);
+    await notifyLeadFalhou(leadData, phone, err, briefing);
+  }
+}
+
+/**
+ * Ultimo recurso: o lead entrou mas o fluxo quebrou. Sem isto, o caso e
+ * indistinguivel de "nao entrou lead nenhum", que e a falha que nao faz
+ * barulho. Nunca deixa excecao escapar: e chamada de dentro de um catch.
+ */
+async function notifyLeadFalhou(leadData, phone, err, briefing) {
+  try {
+    const motivo = String(err?.message || 'erro desconhecido').slice(0, 300);
+    const digits = String(phone || '').replace(/\D/g, '');
+    const suspeito = digits.length < 12 || digits.length > 13;
+    await notifySDR(
+      { ...leadData, whatsapp: phone },
+      [
+        '⚠️ O primeiro contato automático NÃO saiu.',
+        `Motivo: ${motivo}`,
+        suspeito
+          ? `Número com ${digits.length} dígitos — provavelmente digitado errado no formulário.`
+          : 'Chame no WhatsApp manualmente.',
+        briefing ? `\n${briefing}` : null,
+      ].filter(Boolean).join('\n')
+    );
+  } catch (e2) {
+    console.error(`❌ Nem o aviso de falha saiu para ${leadData?.nome}:`, e2.message);
   }
 }
 
