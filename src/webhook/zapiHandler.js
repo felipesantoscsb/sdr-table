@@ -2,6 +2,7 @@
 
 import { isActiveLead, isHandedOff, setHandedOff, blockPhone, unblockPhone, isBlocked, addMessage, getHistory, getLeadData, getSdrHistory, addSdrMessage, incrementTurn, getTurnCount, TURN_LIMIT, enqueueMessage, dequeueMessages, normalizePhone, deactivateLead, getConversationMode, getCommercialState, setCommercialState } from '../conversation/store.js';
 import { aggregate } from '../conversation/aggregator.js';
+import { cancelQuizCadence } from '../quizCadence.js';
 import { generateReply, generateHandoffBriefing, generateConsultivo, generateFirstContact } from '../ai/anthropic.js';
 import { sendMessage, notifySDR, notifySDRHandoff, notifySDRRetomada, notifySDRRedflag, notifySDRTurnLimit, notifyError, notifySDRManualReview, getSendErrorDetail } from '../zapi/sender.js';
 import { handlePlanoCommand } from '../planos/handler.js';
@@ -87,6 +88,11 @@ export async function handleZapiMessage(req, res) {
       console.log(`⛔ Mensagem ignorada de ${phone} (número bloqueado)`);
       return;
     }
+
+    // Lead respondeu: a régua fria D+1/D+3/D+5 não faz mais sentido, quem
+    // conduz daqui em diante é a conversa.
+    cancelQuizCadence(phone, 'respondeu').catch(err =>
+      console.warn(`[quiz-cadence] cancelamento por resposta falhou: ${err.message}`));
 
     // Resposta a campanha sazonal (ex.: Lista VIP Evelyn Liu) tem prioridade:
     // interrompe qualquer automação para este número e nunca cai no fluxo do

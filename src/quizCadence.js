@@ -13,8 +13,10 @@ const LOCK_TTL_SEC = 10 * 60;
 // Atraso máximo tolerado para um passo da cadência (cobre noite/fim de semana).
 const STALE_MS = Number(process.env.QUIZ_CADENCE_STALE_MS || 18 * 60 * 60 * 1000);
 
-// Cadência oficial ativa para todo novo QuizCompleted.
-export const QUIZ_CADENCE_ENABLED = true;
+// Cadência oficial ativa para todo novo QuizCompleted. Fica ligada por
+// padrão, mas com interruptor: QUIZ_CADENCE_ENABLED=false derruba tudo sem
+// precisar de deploy (o job nem sobe e a fila pendente é limpa no boot).
+export const QUIZ_CADENCE_ENABLED = process.env.QUIZ_CADENCE_ENABLED !== 'false';
 export const QUIZ_CADENCE_VERSION = 'pr_d1_d3_d5_v1';
 
 export const QUIZ_CADENCE_STEPS = [
