@@ -93,3 +93,26 @@ sdr-whatsapp/
 - Use PM2 para manter o processo rodando: `pm2 start src/index.js`
 - Configure um domínio fixo (não ngrok)
 - Adicione rate limiting para proteger os endpoints
+
+## Cadência pós-quiz oficial
+
+O webhook `POST /webhook/quiz` mantém o envio existente do dossiê em cerca de
+15 minutos e agenda, no mesmo Redis e job já usados pelo serviço, três passos
+ancorados no horário do `QuizCompleted`:
+
+- D+1: template aprovado `d1_pr`;
+- D+3: template aprovado `d3_pr`;
+- D+5: template aprovado `d5_pr`.
+
+A cadência fica ativa diretamente no código, sem depender de flag de ambiente.
+
+Cada template recebe somente o primeiro nome. Antes de cada envio, o serviço
+confere compra no Redis, veto definitivo no Hub e opt-out. Locks e marcadores de
+envio impedem concorrência e reenvio. O `lead_event_id` identifica a ocorrência
+do quiz, portanto o mesmo `QuizCompleted` não cria outra cadência.
+
+Cadências persistidas por versões anteriores são descartadas e não entram em
+backfill. Para QA, configure temporariamente
+`QUIZ_CADENCE_D1_DELAY_MS=60000`, `QUIZ_CADENCE_D3_DELAY_MS=120000` e
+`QUIZ_CADENCE_D5_DELAY_MS=180000`. O job varre a fila a cada minuto; não use
+esses overrides em produção.
