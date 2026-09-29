@@ -1,5 +1,6 @@
 import test, { afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 process.env.QUIZ_CADENCE_ENABLED = 'true';
 
@@ -185,4 +186,24 @@ test('pendências de versões anteriores são descartadas sem backfill', async (
 
   assert.equal(h.values.has(`pending_quiz_cadence:${phone}:0`), false);
   assert.equal(h.sent.length, 0);
+});
+
+// Os prazos eram configuráveis por env. O risco prático era uma variável de QA
+// esquecida no Railway: com QUIZ_CADENCE_D1_DELAY_MS=60000 os três disparos
+// sairiam em menos de 3 minutos do quiz, na mesma pessoa.
+test('os prazos são fixos e não voltam a depender de variável de ambiente', () => {
+  const fonte = readFileSync(new URL('../src/quizCadence.js', import.meta.url), 'utf8');
+  // Trava o USO, não a menção: o comentário no código cita o nome da variável
+  // de propósito, para quem for mexer entender por que ela saiu.
+  assert.doesNotMatch(fonte, /process\.env\.QUIZ_CADENCE_D[135]_DELAY_MS/);
+  assert.doesNotMatch(fonte, /delayMs:\s*Number\(/);
+});
+
+test('D+1, D+3 e D+5 são exatamente 1, 3 e 5 dias', () => {
+  const dia = 24 * 60 * 60 * 1000;
+  assert.deepEqual(
+    QUIZ_CADENCE_STEPS.map(s => s.delayMs),
+    [1 * dia, 3 * dia, 5 * dia],
+  );
+  assert.deepEqual(QUIZ_CADENCE_STEPS.map(s => s.key), ['d1', 'd3', 'd5']);
 });

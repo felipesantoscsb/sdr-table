@@ -112,7 +112,7 @@ envio impedem concorrência e reenvio. O `lead_event_id` identifica a ocorrênci
 do quiz, portanto o mesmo `QuizCompleted` não cria outra cadência.
 
 Cadências persistidas por versões anteriores são descartadas e não entram em
-backfill. Para QA, configure temporariamente
-`QUIZ_CADENCE_D1_DELAY_MS=60000`, `QUIZ_CADENCE_D3_DELAY_MS=120000` e
-`QUIZ_CADENCE_D5_DELAY_MS=180000`. O job varre a fila a cada minuto; não use
-esses overrides em produção.
+backfill. Os prazos de D+1, D+3 e D+5 são fixos no código (`QUIZ_CADENCE_STEPS`),
+sem override por variável de ambiente: uma variável de QA esquecida no Railway
+faria os três disparos saírem em minutos, na mesma pessoa. Para testar, altere
+os valores numa branch. O job varre a fila a cada minuto.

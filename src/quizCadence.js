@@ -19,22 +19,26 @@ const STALE_MS = Number(process.env.QUIZ_CADENCE_STALE_MS || 18 * 60 * 60 * 1000
 export const QUIZ_CADENCE_ENABLED = process.env.QUIZ_CADENCE_ENABLED !== 'false';
 export const QUIZ_CADENCE_VERSION = 'pr_d1_d3_d5_v1';
 
+// Prazos FIXOS de proposito. Eram configuraveis por env, e o risco pratico era
+// uma variavel de QA esquecida no Railway: com QUIZ_CADENCE_D1_DELAY_MS=60000 os
+// tres disparos sairiam em menos de 3 minutos do quiz, na mesma pessoa. Para
+// testar, mexa aqui numa branch — nao em producao por variavel de ambiente.
 export const QUIZ_CADENCE_STEPS = [
   {
     key: 'd1',
-    delayMs: Number(process.env.QUIZ_CADENCE_D1_DELAY_MS || 24 * 60 * 60 * 1000),
+    delayMs: 24 * 60 * 60 * 1000,   // D+1
     templateName: 'd1_pr',
     params: (lead) => [firstName(lead.nome)],
   },
   {
     key: 'd3',
-    delayMs: Number(process.env.QUIZ_CADENCE_D3_DELAY_MS || 3 * 24 * 60 * 60 * 1000),
+    delayMs: 3 * 24 * 60 * 60 * 1000,   // D+3
     templateName: 'd3_pr',
     params: (lead) => [firstName(lead.nome)],
   },
   {
     key: 'd5',
-    delayMs: Number(process.env.QUIZ_CADENCE_D5_DELAY_MS || 5 * 24 * 60 * 60 * 1000),
+    delayMs: 5 * 24 * 60 * 60 * 1000,   // D+5
     templateName: 'd5_pr',
     params: (lead) => [firstName(lead.nome)],
   },
