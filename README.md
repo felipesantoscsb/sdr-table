@@ -97,12 +97,15 @@ sdr-whatsapp/
 ## Cadência pós-quiz oficial
 
 O webhook `POST /webhook/quiz` mantém o envio existente do dossiê em cerca de
-15 minutos e agenda, no mesmo Redis e job já usados pelo serviço, três passos
+15 minutos e agenda, no mesmo Redis e job já usados pelo serviço, dois passos
 ancorados no horário do `QuizCompleted`:
 
 - D+1: template aprovado `d1_pr`;
-- D+3: template aprovado `d3_pr`;
-- D+5: template aprovado `d5_pr`.
+- D+3: template aprovado `d5_pr` (a copy do antigo D+5, antecipada).
+
+Eram três toques até 07/10/2026. O `d3_pr` saiu e o D+5 foi antecipado para
+D+3, para cortar custo de mensageria sem perder o último toque — o template
+`d3_pr` continua aprovado no Meta, apenas sem uso.
 
 A cadência fica ativa diretamente no código, sem depender de flag de ambiente.
 
@@ -112,7 +115,7 @@ envio impedem concorrência e reenvio. O `lead_event_id` identifica a ocorrênci
 do quiz, portanto o mesmo `QuizCompleted` não cria outra cadência.
 
 Cadências persistidas por versões anteriores são descartadas e não entram em
-backfill. Os prazos de D+1, D+3 e D+5 são fixos no código (`QUIZ_CADENCE_STEPS`),
+backfill. Os prazos de D+1 e D+3 são fixos no código (`QUIZ_CADENCE_STEPS`),
 sem override por variável de ambiente: uma variável de QA esquecida no Railway
-faria os três disparos saírem em minutos, na mesma pessoa. Para testar, altere
+faria os disparos saírem em minutos, na mesma pessoa. Para testar, altere
 os valores numa branch. O job varre a fila a cada minuto.

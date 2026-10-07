@@ -17,12 +17,21 @@ const STALE_MS = Number(process.env.QUIZ_CADENCE_STALE_MS || 18 * 60 * 60 * 1000
 // padrão, mas com interruptor: QUIZ_CADENCE_ENABLED=false derruba tudo sem
 // precisar de deploy (o job nem sobe e a fila pendente é limpa no boot).
 export const QUIZ_CADENCE_ENABLED = process.env.QUIZ_CADENCE_ENABLED !== 'false';
+// O nome da versão não descreve mais a cadência (hoje são dois toques, não
+// três) e fica assim de propósito: o sweep APAGA toda pendência cuja versão
+// não bate com esta. Renomear cancelaria em silêncio o segundo toque de quem
+// já está no meio do caminho — exatamente quem estamos tentando converter.
 export const QUIZ_CADENCE_VERSION = 'pr_d1_d3_d5_v1';
 
 // Prazos FIXOS de proposito. Eram configuraveis por env, e o risco pratico era
 // uma variavel de QA esquecida no Railway: com QUIZ_CADENCE_D1_DELAY_MS=60000 os
 // tres disparos sairiam em menos de 3 minutos do quiz, na mesma pessoa. Para
 // testar, mexa aqui numa branch — nao em producao por variavel de ambiente.
+// Dois toques desde 07/10/2026 (antes eram três: d1_pr, d3_pr, d5_pr).
+// Decisão do Felipe para cortar custo de mensageria: o d3_pr sai de cena e o
+// ÚLTIMO toque passa a ser a copy do d5_pr, antecipada para D+3. O índice de
+// cada passo é a chave das pendências já agendadas no Redis, então a ordem
+// aqui não pode ser rearranjada sem pensar em quem está no meio da cadência.
 export const QUIZ_CADENCE_STEPS = [
   {
     key: 'd1',
@@ -33,13 +42,7 @@ export const QUIZ_CADENCE_STEPS = [
   {
     key: 'd3',
     delayMs: 3 * 24 * 60 * 60 * 1000,   // D+3
-    templateName: 'd3_pr',
-    params: (lead) => [firstName(lead.nome)],
-  },
-  {
-    key: 'd5',
-    delayMs: 5 * 24 * 60 * 60 * 1000,   // D+5
-    templateName: 'd5_pr',
+    templateName: 'd5_pr',              // a copy do antigo D+5, antecipada
     params: (lead) => [firstName(lead.nome)],
   },
 ];
@@ -175,7 +178,7 @@ export async function scheduleQuizCadence(phoneRaw, leadData = {}) {
     );
   }
 
-  console.log(`🧭 [quiz-cadence] D+1/D+3/D+5 agendados para ${lead.nome || 'Lead'} (${phone}) — score ${lead.score}`);
+  console.log(`🧭 [quiz-cadence] D+1/D+3 agendados para ${lead.nome || 'Lead'} (${phone}) — score ${lead.score}`);
   return cadence;
 }
 
@@ -207,7 +210,7 @@ export function startQuizCadenceJob() {
     console.log('🛑 Cadência pós-quiz oficial desativada');
     return;
   }
-  console.log('⏰ Cadência pós-quiz D+1/D+3/D+5 ativada');
+  console.log('⏰ Cadência pós-quiz D+1/D+3 ativada');
   setInterval(checkQuizCadence, CHECK_INTERVAL_MS);
 }
 
@@ -251,7 +254,15 @@ export async function checkQuizCadence() {
 export async function fireQuizCadenceStep(phoneRaw, stepIndex) {
   const phone = normalizePhone(phoneRaw || '');
   const step = QUIZ_CADENCE_STEPS[Number(stepIndex)];
-  if (!phone || !step) return;
+  if (!phone) return;
+  // Passo que não existe mais: é a pendência do antigo D+5, agendada antes do
+  // corte. Sair sem apagar deixaria a chave viva até o TTL, e o sweep voltaria
+  // nela a cada minuto só para desistir de novo.
+  if (!step) {
+    await dependencies.safeDel(pendingKey(phone, stepIndex));
+    console.log(`🧹 [quiz-cadence] passo ${stepIndex} não existe mais na cadência — pendência de ${phone} descartada`);
+    return;
+  }
 
   if (await dependencies.safeGet(`compra:${phone}`)) {
     await cancelQuizCadence(phone, 'purchase');

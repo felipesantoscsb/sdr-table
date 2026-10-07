@@ -80,7 +80,7 @@ test('agenda D+1, D+3 e D+5 a partir do QuizCompleted e envia os templates aprov
   const cadence = await scheduleQuizCadence(input.phone, input);
 
   assert.equal(cadence.version, QUIZ_CADENCE_VERSION);
-  assert.deepEqual(cadence.steps.map(step => step.templateName), ['d1_pr', 'd3_pr', 'd5_pr']);
+  assert.deepEqual(cadence.steps.map(step => step.templateName), ['d1_pr', 'd5_pr']);
   assert.deepEqual(
     cadence.steps.map(step => step.fire_at),
     QUIZ_CADENCE_STEPS.map(step => input.timestamp + step.delayMs)
@@ -88,11 +88,10 @@ test('agenda D+1, D+3 e D+5 a partir do QuizCompleted e envia os templates aprov
 
   await fireQuizCadenceStep(input.phone, 0);
   await fireQuizCadenceStep(input.phone, 1);
-  await fireQuizCadenceStep(input.phone, 2);
 
-  assert.deepEqual(h.sent.map(item => item.templateName), ['d1_pr', 'd3_pr', 'd5_pr']);
+  assert.deepEqual(h.sent.map(item => item.templateName), ['d1_pr', 'd5_pr']);
   assert.ok(h.sent.every(item => item.params.length === 1 && item.params[0] === 'Maria'));
-  assert.deepEqual(h.registered.map(item => item.templateName), ['d1_pr', 'd3_pr', 'd5_pr']);
+  assert.deepEqual(h.registered.map(item => item.templateName), ['d1_pr', 'd5_pr']);
 });
 
 test('compra antes de D+1 cancela todos os envios', async () => {
@@ -126,12 +125,11 @@ test('compra depois de D+3 interrompe D+5', async () => {
   const input = lead();
   await scheduleQuizCadence(input.phone, input);
   await fireQuizCadenceStep(input.phone, 0);
-  await fireQuizCadenceStep(input.phone, 1);
   h.values.set(`compra:${input.phone}`, '1');
 
-  await fireQuizCadenceStep(input.phone, 2);
+  await fireQuizCadenceStep(input.phone, 1);
 
-  assert.deepEqual(h.sent.map(item => item.templateName), ['d1_pr', 'd3_pr']);
+  assert.deepEqual(h.sent.map(item => item.templateName), ['d1_pr']);
 });
 
 test('QuizCompleted duplicado não reinicia a cadência nem apaga etapas enviadas', async () => {
@@ -199,11 +197,27 @@ test('os prazos são fixos e não voltam a depender de variável de ambiente', (
   assert.doesNotMatch(fonte, /delayMs:\s*Number\(/);
 });
 
-test('D+1, D+3 e D+5 são exatamente 1, 3 e 5 dias', () => {
+// Dois toques desde 07/10/2026: o d3_pr saiu e a copy do d5_pr foi
+// antecipada para D+3. O teste trava os dois fatos que custam dinheiro se
+// mudarem sem querer — quantos disparos e em que dia.
+test('a cadência tem dois toques: D+1 e D+3', () => {
   const dia = 24 * 60 * 60 * 1000;
-  assert.deepEqual(
-    QUIZ_CADENCE_STEPS.map(s => s.delayMs),
-    [1 * dia, 3 * dia, 5 * dia],
-  );
-  assert.deepEqual(QUIZ_CADENCE_STEPS.map(s => s.key), ['d1', 'd3', 'd5']);
+  assert.deepEqual(QUIZ_CADENCE_STEPS.map(s => s.delayMs), [1 * dia, 3 * dia]);
+  assert.deepEqual(QUIZ_CADENCE_STEPS.map(s => s.key), ['d1', 'd3']);
+  assert.deepEqual(QUIZ_CADENCE_STEPS.map(s => s.templateName), ['d1_pr', 'd5_pr']);
+});
+
+// Quem entrou na cadência antes do corte tem uma pendência de D+5 agendada no
+// Redis. Ela não pode virar lixo que o sweep revisita de minuto em minuto.
+test('pendência do antigo D+5 é descartada em vez de ficar girando', async () => {
+  const h = createHarness();
+  const input = lead();
+  await scheduleQuizCadence(input.phone, input);
+  const chaveAntiga = `pending_quiz_cadence:${input.phone}:2`;
+  h.values.set(chaveAntiga, JSON.stringify({ version: QUIZ_CADENCE_VERSION, phone: input.phone, stepIndex: 2, fire_at: Date.now() }));
+
+  await fireQuizCadenceStep(input.phone, 2);
+
+  assert.equal(h.sent.length, 0);
+  assert.equal(h.values.has(chaveAntiga), false);
 });

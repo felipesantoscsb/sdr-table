@@ -89,7 +89,7 @@ export async function handleZapiMessage(req, res) {
       return;
     }
 
-    // Lead respondeu: a régua fria D+1/D+3/D+5 não faz mais sentido, quem
+    // Lead respondeu: a régua fria D+1/D+3 não faz mais sentido, quem
     // conduz daqui em diante é a conversa.
     cancelQuizCadence(phone, 'respondeu').catch(err =>
       console.warn(`[quiz-cadence] cancelamento por resposta falhou: ${err.message}`));
