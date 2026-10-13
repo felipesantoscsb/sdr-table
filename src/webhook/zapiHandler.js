@@ -4,6 +4,7 @@ import { isActiveLead, isHandedOff, setHandedOff, blockPhone, unblockPhone, isBl
 import { aggregate } from '../conversation/aggregator.js';
 import { cancelQuizCadence } from '../quizCadence.js';
 import { generateReply, generateHandoffBriefing, generateConsultivo, generateFirstContact } from '../ai/anthropic.js';
+import { conduzirConfirmacao } from '../confirmacao/handler.js';
 import { sendMessage, notifySDR, notifySDRHandoff, notifySDRRetomada, notifySDRRedflag, notifySDRTurnLimit, notifyError, notifySDRManualReview, getSendErrorDetail } from '../zapi/sender.js';
 import { handlePlanoCommand } from '../planos/handler.js';
 import { getQuizPreData } from './quizPreHandler.js';
@@ -280,6 +281,17 @@ async function processAggregatedMessages(phone, combinedMessage) {
     }
 
     const mode = await getConversationMode(phone);
+
+    // Confirmação de pré-consulta tem caminho próprio e curto: pergunta, lê a
+    // resposta, move o card. Intercepta ANTES da máquina do SDR de propósito —
+    // qualificação, score, branch Evelyn e handoff de agendamento não têm o que
+    // fazer numa conversa que é só "você vem amanhã?", e arrastá-los para cá é
+    // que quebraria o fluxo que já funciona.
+    if (mode === 'confirmacao') {
+      await conduzirConfirmacao({ phone, leadData, history, mensagem: combinedMessage });
+      return;
+    }
+
     const commercial=await getCommercialState(phone);
     const evelyn={...evelynEligibility({phone,source:leadData.source,message:combinedMessage,history,leadData}),stage:commercial.stage||'candidate'};
     if(evelyn.considered&&!commercial.consideredAt){await setCommercialState(phone,{consideredAt:new Date().toISOString(),signals:evelyn.signals,stage:evelyn.eligible?'candidate':'not_offered'});await registrarEventoEvelyn({eventId:crypto.randomUUID(),eventType:evelyn.eligible?'evelyn_candidate':'evelyn_not_offered',phone,leadData,payload:{reason:evelyn.reason,signals:evelyn.signals,explicit_intent:true,decision:evelyn.eligible?'considering':'not_offered'}});}

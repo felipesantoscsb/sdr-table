@@ -131,6 +131,28 @@ export async function notifySDR(leadData, sdrBriefing) {
   await sendToAll(lines.join('\n'), { skipDelay: true });
 }
 
+/**
+ * Aviso de confirmacao de pre-consulta para a Karina.
+ *
+ * Separado do notifySDR porque aquele formata "NOVO LEAD ATIVADO" com score e
+ * briefing — aqui nao existe nem um nem outro, e o que ela precisa saber e
+ * curto: quem respondeu o que, e se o card se moveu sozinho ou se ela tem de
+ * mover na mao.
+ */
+export async function notifyConfirmacao({ nome, phone, rotulo, textoDaLead, aviso }) {
+  const limpo = String(phone || '').replace(/\D/g, '');
+  const lines = [
+    `🗓️ *CONFIRMAÇÃO DE PRÉ-CONSULTA*`,
+    ``,
+    `👤 *${nome || limpo}* — ${rotulo}`,
+    textoDaLead ? `\n💬 "${String(textoDaLead).slice(0, 300)}"` : null,
+    aviso ? `\n${aviso}` : null,
+    ``,
+    `🔗 https://wa.me/${limpo}`,
+  ].filter(l => l !== null);
+  await sendToAll(lines.join('\n'), { skipDelay: true });
+}
+
 export async function notifySDRHandoff(leadData, turno, handoffBriefing) {
   const cleanPhone = (leadData.whatsapp || leadData.whats || '').replace(/\D/g, '');
   const score = leadData.qualificacao?.score ?? leadData.score ?? '?';

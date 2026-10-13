@@ -16,6 +16,8 @@ const HUB_CAPTACAO_LEAD_URL = process.env.HUB_CAPTACAO_LEAD_URL
 const HUB_SECRET = process.env.HUB_WEBHOOK_SECRET || process.env.INTERNAL_WEBHOOK_SECRET;
 const HUB_EVELYN_EVENT_URL = process.env.HUB_EVELYN_EVENT_URL
   || 'https://crm.tableclinic.com.br/webhook/evelyn-branch/event';
+const HUB_CARD_STAGE_URL = process.env.HUB_CARD_STAGE_URL
+  || 'https://crm.tableclinic.com.br/webhook/sdr-card-stage';
 
 const retryDelays = [0, 1500, 4000];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -175,5 +177,31 @@ export async function verificarElegibilidadeContatoSdr({ phone, leadData = {}, s
     const status = err.response?.status;
     console.warn(`[hub] falha ao verificar elegibilidade SDR${status ? ` (HTTP ${status})` : ''}: ${err.message}`);
     return { allowed: false, reason: 'hub_check_failed' };
+  }
+}
+
+
+/**
+ * Move o card no pipeline do Hub. Usado pela confirmacao de pre-consulta:
+ * 'Confirmada' quando a pessoa vem, 'Reagendar' quando nao vem.
+ *
+ * Devolve false em vez de lancar: a conversa com a lead ja aconteceu e nao
+ * pode ser desfeita por uma falha de rede. O chamador avisa a Karina, que
+ * move na mao — e o aviso para ela sai de qualquer forma.
+ */
+export async function moverCardPipeline({ cardId, stage, motivo = null, phone = null }) {
+  if (!HUB_SECRET) {
+    console.warn('[hub] HUB_WEBHOOK_SECRET não configurado — movimento de card ignorado');
+    return false;
+  }
+  if (!cardId || !stage) return false;
+  try {
+    const res = await axios.post(HUB_CARD_STAGE_URL,
+      { card_id: cardId, stage, motivo, phone, origem: 'sdr-confirmacao' },
+      { headers: { 'Content-Type': 'application/json', 'x-webhook-secret': HUB_SECRET }, timeout: 8000 });
+    return res.status >= 200 && res.status < 300;
+  } catch (e) {
+    console.error('[hub] falha ao mover card', cardId, '→', stage, ':', e.message);
+    return false;
   }
 }

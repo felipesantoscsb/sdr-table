@@ -157,6 +157,24 @@ export async function setRecoveryMode(phone, leadData) {
   await safeSet(PREFIX.lastSeen + normalizePhone(phone), Date.now());
 }
 
+// Confirmacao de pre-consulta. O agente so pergunta se a pessoa vem, le a
+// resposta e move o card. Nao vende, nao reagenda e nao fala de conduta.
+// Fase mais barata de errar, por isso e a primeira a rodar sozinha.
+export async function setConfirmacaoMode(phone, leadData) {
+  if (await isBlocked(phone)) {
+    console.log(`Confirmacao ignorada: ${normalizePhone(phone)} esta bloqueado`);
+    return false;
+  }
+  const conv = await getConv(phone);
+  conv.isActiveLead = true;
+  conv.handedOff = false;
+  conv.mode = 'confirmacao';
+  conv.leadData = { ...(conv.leadData || {}), ...(leadData || {}) };
+  await saveConv(phone, conv);
+  await safeSet(PREFIX.lastSeen + normalizePhone(phone), Date.now());
+  return true;
+}
+
 export async function isHandedOff(phone) {
   const conv = await getConv(phone);
   return conv.handedOff;

@@ -35,6 +35,75 @@ const REATIVACAO_PROMPT = readFileSync(
   'utf-8'
 );
 
+const CONFIRMACAO_PROMPT = readFileSync(
+  join(__dirname, '../../config/prompts/confirmacao.txt'),
+  'utf-8'
+);
+
+/**
+ * Primeira mensagem da confirmacao de pre-consulta. Texto puro: e ela que abre
+ * a conversa. As respostas seguintes sao conduzidas pelo mesmo prompt, em
+ * generateReply com mode 'confirmacao'.
+ */
+export async function generateConfirmacaoMessage({ nome, quando, nutri }) {
+  const resposta = await client.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 400,
+    system: CONFIRMACAO_PROMPT,
+    messages: [{ role: 'user', content: `
+Escreva APENAS a primeira mensagem, em texto puro (sem JSON).
+
+Nome: ${nome || 'nao informado'}
+Pre-consulta: ${quando || 'amanha'}
+Nutricionista: ${nutri || 'nossa nutricionista'}
+
+Cumprimente pelo primeiro nome, diga quando e a pre-consulta e pergunte se ela
+confirma a presenca. Duas a tres linhas no maximo.` }],
+  });
+  return resposta.content[0].text.trim();
+}
+
+/**
+ * Le a resposta da lead na confirmacao. Devolve a mensagem de volta E a
+ * classificacao que decide o movimento do card no Hub.
+ *
+ * Classificacao desconhecida vira 'indefinido' com handoff: na duvida, quem
+ * decide e uma pessoa. Confirmar errado custa uma agenda vazia; mandar para a
+ * Karina custa um minuto dela.
+ */
+export async function generateConfirmacaoReply({ nome, quando, nutri, historico = [], mensagem }) {
+  const resposta = await client.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 600,
+    system: CONFIRMACAO_PROMPT,
+    messages: [
+      ...sanitizeConversationHistory(historico),
+      { role: 'user', content: `
+Nome: ${nome || 'nao informado'}
+Pre-consulta: ${quando || 'amanha'}
+Nutricionista: ${nutri || 'nossa nutricionista'}
+
+Mensagem da pessoa: "${mensagem}"
+
+Responda no formato JSON definido.` },
+    ],
+  });
+  const bruto = resposta.content[0].text.replace(/```json|```/g, '').trim();
+  try {
+    const p = JSON.parse(bruto);
+    const classificacoes = ['confirmou', 'nao_pode', 'indefinido'];
+    const classificacao = classificacoes.includes(p.classificacao) ? p.classificacao : 'indefinido';
+    return {
+      mensagem: String(p.mensagem || '').trim(),
+      classificacao,
+      handoff: p.handoff === true || classificacao === 'indefinido',
+    };
+  } catch {
+    console.error('[confirmacao] IA nao devolveu JSON valido:', bruto.slice(0, 200));
+    return { mensagem: '', classificacao: 'indefinido', handoff: true };
+  }
+}
+
 // Gera a mensagem humanizada de recuperação de checkout (Karina). Retorna TEXTO
 // puro (não JSON) — é a 1ª mensagem que abre a conversa. Respostas subsequentes
 // da lead são conduzidas pelo mesmo RECUPERACAO_PROMPT no fluxo do agente.
