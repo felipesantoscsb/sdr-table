@@ -88,3 +88,16 @@ test('a confirmação manda a jornada junto — é ela que faz a lead aparecer',
   const h = ler('src/confirmacao/handler.js');
   assert.match(h, /jornada_url: jornadaUrl/);
 });
+
+test('reação não acorda o agente em modo nenhum', () => {
+  // Um joinha no link da pré-consulta gerou resposta espontânea para uma lead
+  // em 14/10. Reação não pede resposta, não é pergunta e não é consentimento
+  // para conversar — e pode chegar em QUALQUER conversa, não só nestas.
+  const i = zapi.indexOf('const ehReacao');
+  assert.ok(i > 0, 'guarda de reação tem de existir');
+  // antes de qualquer leitura de modo: vale para todos, sem exceção
+  // compara com a CHAMADA, não com o import no topo do arquivo
+  assert.ok(i < zapi.indexOf('await getConversationMode('), 'guarda vem antes de ler o modo');
+  assert.match(zapi, /body\.reaction \|\| body\.reactionMessage \|\| body\.messageReaction/);
+  assert.match(zapi, /includes\('reaction'\)/);
+});

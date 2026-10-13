@@ -52,6 +52,20 @@ export async function handleZapiMessage(req, res) {
     if (!phone) return;
     if (body.isFromMe) return;
 
+    // REAÇÃO NÃO É MENSAGEM. Um joinha no link da pré-consulta acordou o
+    // agente e gerou resposta espontânea para uma lead em 14/10/2026.
+    // Reação não pede resposta, não é pergunta e não é consentimento para
+    // conversar — vale para TODOS os modos, sem exceção.
+    // A checagem é larga de propósito: Z-API já mudou o formato desses eventos
+    // mais de uma vez, e o custo de ignorar demais aqui é zero.
+    const ehReacao = !!(body.reaction || body.reactionMessage || body.messageReaction)
+      || String(body.type || '').toLowerCase().includes('reaction')
+      || String(body.messageType || '').toLowerCase().includes('reaction');
+    if (ehReacao) {
+      console.log(`[zapi] reação ignorada de ${phone}`);
+      return;
+    }
+
     // Mensagem SÓ com mídia (sem texto nem legenda) era descartada aqui —
     // justamente o caso do print do comprovante. Agora passa, mas apenas no
     // modo oferta: nos outros fluxos segue ignorada, como sempre foi.
