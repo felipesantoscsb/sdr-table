@@ -108,8 +108,13 @@ Responda no formato JSON definido.` },
 // puro (não JSON) — é a 1ª mensagem que abre a conversa. Respostas subsequentes
 // da lead são conduzidas pelo mesmo RECUPERACAO_PROMPT no fluxo do agente.
 export async function generateRecoveryMessage(payload) {
-  const { name, stage, touch, pix_code, pix_expiration, checkout_url, perfil } = payload || {};
+  const { name, stage, touch, pix_code, pix_expiration, checkout_url, perfil, respostas } = payload || {};
   const temPix = stage === 'waiting_payment' && pix_code;
+
+  // As respostas do quiz são o que separa esta mensagem de um template. A
+  // pessoa contou o que acontece com ela; a mensagem tem de mostrar que
+  // alguém leu. Sem elas o agente ainda escreve, só genérico.
+  const contexto = String(respostas || '').trim();
 
   const userPrompt = `
 Contexto da recuperação de checkout (gere APENAS a mensagem de WhatsApp, texto puro,
@@ -122,6 +127,13 @@ Perfil emocional: ${perfil || 'não informado'}
 Link do checkout: ${checkout_url || 'não informado'}
 ${temPix ? `Pix copia-e-cola: ${pix_code}` : ''}
 ${temPix && pix_expiration ? `O pix expira em: ${pix_expiration}` : ''}
+
+${contexto ? `O que ela respondeu no quiz:
+${contexto.slice(0, 1200)}
+
+Use UMA coisa concreta do que ela respondeu para mostrar que você leu. Não liste
+as respostas, não repita como relatório, não diagnostique e não dê conselho sobre
+alimentação. É um fio de conexão, não um resumo.` : 'Ela não passou pelo quiz, ou as respostas não chegaram: escreva sem inventar nada sobre a história dela.'}
 
 Regras da mensagem: curta, calorosa, uma pergunta só, sem parecer robô. ${temPix ? 'Inclua o link do checkout e o pix copia-e-cola.' : 'Inclua o link do checkout e pergunte se ficou alguma dúvida.'}`;
 

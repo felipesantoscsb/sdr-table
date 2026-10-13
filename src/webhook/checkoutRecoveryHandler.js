@@ -27,14 +27,19 @@ export async function handleCheckoutRecovery(req, res) {
       return;
     }
 
-    // Enriquece o perfil emocional pela conversa, se a lead já existir aqui.
+    // Enriquece pela conversa, se a lead já existir aqui. As RESPOSTAS DO QUIZ
+    // são o que torna a mensagem personalizada em vez de template: o
+    // aquisicao-table não as manda (ele filtra dado sensível de propósito antes
+    // de falar com a Meta), mas o quizHandler já guardou tudo neste serviço.
     let perfil = p.perfil || null;
+    let respostas = null;
     try {
       const lead = await getLeadData(p.phone);
       perfil = perfil || lead?.qualificacao?.perfil || lead?.perfil || null;
+      respostas = lead?.respostas || null;
     } catch {}
 
-    const message = await generateRecoveryMessage({ ...p, perfil });
+    const message = await generateRecoveryMessage({ ...p, perfil, respostas });
     if (!message) {
       console.error('[Recovery-SDR] mensagem vazia — nada enviado.');
       return;
