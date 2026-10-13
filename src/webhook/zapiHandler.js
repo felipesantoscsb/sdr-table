@@ -5,6 +5,7 @@ import { aggregate } from '../conversation/aggregator.js';
 import { cancelQuizCadence } from '../quizCadence.js';
 import { generateReply, generateHandoffBriefing, generateConsultivo, generateFirstContact } from '../ai/anthropic.js';
 import { conduzirConfirmacao } from '../confirmacao/handler.js';
+import { conduzirOferta } from '../oferta/handler.js';
 import { sendMessage, notifySDR, notifySDRHandoff, notifySDRRetomada, notifySDRRedflag, notifySDRTurnLimit, notifyError, notifySDRManualReview, getSendErrorDetail } from '../zapi/sender.js';
 import { handlePlanoCommand } from '../planos/handler.js';
 import { getQuizPreData } from './quizPreHandler.js';
@@ -38,10 +39,35 @@ export async function handleZapiMessage(req, res) {
     if (body.type !== 'ReceivedCallback') return;
 
     const phone = normalizePhone(body.phone || '');
-    const messageText = body.text?.message || body.text;
+    // Legenda da imagem vem fora de body.text; sem isso, foto com texto junto
+    // chegaria vazia.
+    const messageText = body.text?.message || body.text || body.image?.caption || null;
 
-    if (!phone || !messageText) return;
+    // Mídia recebida. Interessa à oferta: muita lead manda print do
+    // comprovante, e conferir pagamento é trabalho humano. Serve também de
+    // guarda para foto de corpo, exame ou remédio, que o agente não pode
+    // comentar em hipótese nenhuma.
+    const temImagem = !!(body.image || body.photo || body.sticker || body.document || body.video);
+
+    if (!phone) return;
     if (body.isFromMe) return;
+
+    // Mensagem SÓ com mídia (sem texto nem legenda) era descartada aqui —
+    // justamente o caso do print do comprovante. Agora passa, mas apenas no
+    // modo oferta: nos outros fluxos segue ignorada, como sempre foi.
+    if (!messageText && temImagem) {
+      const modoMidia = await getConversationMode(phone);
+      if (modoMidia !== 'oferta') return;
+      const leadMidia = (await getLeadData(phone)) || {};
+      const histMidia = await getHistory(phone).catch(() => []);
+      await conduzirOferta({
+        phone, leadData: leadMidia, history: histMidia,
+        mensagem: '[imagem enviada pela lead]', temImagem: true,
+      });
+      return;
+    }
+
+    if (!messageText) return;
 
     // Mensagem da Karina
     if (phone === normalizePhone(config.sdr.phone)) {
@@ -289,6 +315,15 @@ async function processAggregatedMessages(phone, combinedMessage) {
     // que quebraria o fluxo que já funciona.
     if (mode === 'confirmacao') {
       await conduzirConfirmacao({ phone, leadData, history, mensagem: combinedMessage });
+      return;
+    }
+
+    // Oferta pós pré-consulta: mesmo motivo da interceptação acima. Esta
+    // pessoa já foi qualificada por uma nutricionista numa consulta de
+    // verdade; rodar score e branch Evelyn por cima disso seria recomeçar do
+    // zero uma conversa que já está adiantada.
+    if (mode === 'oferta') {
+      await conduzirOferta({ phone, leadData, history, mensagem: combinedMessage, temImagem });
       return;
     }
 

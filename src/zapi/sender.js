@@ -153,6 +153,22 @@ export async function notifyConfirmacao({ nome, phone, rotulo, textoDaLead, avis
   await sendToAll(lines.join('\n'), { skipDelay: true });
 }
 
+/** Aviso de handoff na oferta pos pre-consulta. */
+export async function notifyOferta({ nome, phone, produto, rotulo, textoDaLead, desfecho }) {
+  const limpo = String(phone || '').replace(/\D/g, '');
+  const lines = [
+    `💰 *OFERTA — PRECISA DE VOCÊ*`,
+    ``,
+    `👤 *${nome || limpo}*${produto ? ` · ${produto}` : ''}`,
+    rotulo,
+    textoDaLead ? `\n💬 "${String(textoDaLead).slice(0, 300)}"` : null,
+    desfecho && desfecho !== 'em_andamento' ? `\nDesfecho registrado: ${desfecho}` : null,
+    ``,
+    `🔗 https://wa.me/${limpo}`,
+  ].filter(l => l !== null);
+  await sendToAll(lines.join('\n'), { skipDelay: true });
+}
+
 export async function notifySDRHandoff(leadData, turno, handoffBriefing) {
   const cleanPhone = (leadData.whatsapp || leadData.whats || '').replace(/\D/g, '');
   const score = leadData.qualificacao?.score ?? leadData.score ?? '?';

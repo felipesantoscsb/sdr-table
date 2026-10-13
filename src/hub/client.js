@@ -18,6 +18,8 @@ const HUB_EVELYN_EVENT_URL = process.env.HUB_EVELYN_EVENT_URL
   || 'https://crm.tableclinic.com.br/webhook/evelyn-branch/event';
 const HUB_CARD_STAGE_URL = process.env.HUB_CARD_STAGE_URL
   || 'https://crm.tableclinic.com.br/webhook/sdr-card-stage';
+const HUB_OFERTA_RESPONDEU_URL = 'https://crm.tableclinic.com.br/webhook/oferta-respondeu';
+const HUB_OFERTA_DESFECHO_URL  = 'https://crm.tableclinic.com.br/webhook/oferta-desfecho';
 
 const retryDelays = [0, 1500, 4000];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -202,6 +204,44 @@ export async function moverCardPipeline({ cardId, stage, motivo = null, phone = 
     return res.status >= 200 && res.status < 300;
   } catch (e) {
     console.error('[hub] falha ao mover card', cardId, '→', stage, ':', e.message);
+    return false;
+  }
+}
+
+
+/** Para a regua de follow-up: a lead respondeu, o agente assumiu a conversa. */
+export async function pararReguaOferta(cardId, motivo = 'lead respondeu') {
+  if (!HUB_SECRET || !cardId) return false;
+  try {
+    await axios.post(HUB_OFERTA_RESPONDEU_URL, { card_id: cardId, motivo },
+      { headers: { 'Content-Type': 'application/json', 'x-webhook-secret': HUB_SECRET }, timeout: 8000 });
+    return true;
+  } catch (e) {
+    console.error('[hub] falha ao parar a régua da oferta', cardId, ':', e.message);
+    return false;
+  }
+}
+
+/**
+ * Registra o desfecho da oferta na MESMA tabela que a Karina preenche a mao
+ * (fonte 'agente'). E o loop da Fase 0 fechando.
+ *
+ * Nunca lanca: a conversa com a lead ja aconteceu e nao se desfaz por falha
+ * de rede. Perder o registro e ruim; derrubar a conversa e pior.
+ */
+export async function registrarDesfechoOferta({ cardId, desfecho, objecao = null, objecaoTexto = null, handoffMotivo = null }) {
+  if (!HUB_SECRET || !cardId) return false;
+  try {
+    const res = await axios.post(HUB_OFERTA_DESFECHO_URL, {
+      card_id: cardId,
+      desfecho,
+      objecao,
+      objecao_texto: objecaoTexto,
+      handoff_motivo: handoffMotivo,
+    }, { headers: { 'Content-Type': 'application/json', 'x-webhook-secret': HUB_SECRET }, timeout: 8000 });
+    return res.status >= 200 && res.status < 300;
+  } catch (e) {
+    console.error('[hub] falha ao registrar desfecho da oferta', cardId, ':', e.message);
     return false;
   }
 }

@@ -35,10 +35,120 @@ const REATIVACAO_PROMPT = readFileSync(
   'utf-8'
 );
 
+const OFERTA_PROMPT = readFileSync(
+  join(__dirname, '../../config/prompts/oferta.txt'),
+  'utf-8'
+);
+
 const CONFIRMACAO_PROMPT = readFileSync(
   join(__dirname, '../../config/prompts/confirmacao.txt'),
   'utf-8'
 );
+
+// Contexto comum das mensagens de oferta. O que a nutricionista escreveu e o
+// que a pessoa respondeu no quiz sao o que permite continuar a conversa dela
+// em vez de recomecar um pitch — e e o que separa isto de um template.
+function contextoOferta(d = {}) {
+  const partes = [
+    `Nome: ${d.nome || 'nao informado'}`,
+    `Nutricionista que atendeu: ${d.nutri || 'nao informada'}`,
+    `Produto recomendado por ela: ${d.produto || 'nao informado'}`,
+    `Link da oferta: ${d.oferta_url || 'nao informado'}`,
+    d.jornada_url ? `Jornada personalizada (metodologia): ${d.jornada_url}` : null,
+    d.perfil ? `Padrao do Protocolo Raiz: ${d.perfil}` : null,
+    d.veio_do_pr ? 'Ela ja comprou o Protocolo Raiz antes.' : 'Ela entrou direto na pre-consulta, sem passar pelo Protocolo Raiz.',
+    d.obs_form ? `\nO que ela trouxe no formulario da pre-consulta:\n${String(d.obs_form).slice(0, 1500)}` : null,
+    d.obs_nutri ? `\nObservacoes da nutricionista:\n${String(d.obs_nutri).slice(0, 1500)}` : null,
+    d.respostas ? `\nO que ela respondeu no quiz:\n${String(d.respostas).slice(0, 1000)}` : null,
+  ].filter(Boolean);
+  return partes.join('\n');
+}
+
+// O que cada toque da regua deve fazer. Explicito no prompt porque a diferenca
+// entre eles e justamente o que impede a regua de virar quatro cobrancas.
+const INSTRUCAO_POR_TOQUE = {
+  0: `Primeira mensagem. Retome ALGO CONCRETO que ela trouxe na consulta, diga o que a nutricionista recomendou e por que, e mande o link da oferta. Tres a cinco linhas.`,
+  1: `Ela nao respondeu a primeira mensagem. NAO repita a oferta e NAO mande o link de novo. Faca UMA pergunta que abra espaco para o nao: o que pesou, o que ficou faltando. Duas linhas.`,
+  3: `Ela segue sem responder. Traga um ANGULO NOVO, usando algo especifico do que ela contou na consulta ou no quiz. Nao cobre, nao pergunte "viu minha mensagem". Tres linhas no maximo.`,
+  7: `Ultimo contato. ENCERRE de forma explicita e sem culpa: diga que vai deixar por aqui e que se ela mudar de ideia e so chamar. Nao faca pergunta, nao mande link, nao deixe gancho. Duas linhas.`,
+};
+
+/**
+ * Mensagem de um toque da regua de oferta. Texto puro: e ela que fala primeiro.
+ */
+export async function generateOfertaMessage(dados = {}) {
+  const toque = Number(dados.toque) || 0;
+  const resposta = await client.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 900,
+    system: OFERTA_PROMPT,
+    messages: [{ role: 'user', content: `
+Escreva APENAS a mensagem, em texto puro (sem JSON, sem aspas em volta).
+
+${contextoOferta(dados)}
+
+${INSTRUCAO_POR_TOQUE[toque] || INSTRUCAO_POR_TOQUE[0]}` }],
+  });
+  return (resposta.content[0]?.text || '').trim();
+}
+
+/**
+ * Resposta da lead na oferta. Devolve a mensagem E o que alimenta o registro:
+ * desfecho, objecao classificada e motivo de handoff.
+ *
+ * Qualquer coisa que nao seja JSON valido vira handoff. Num funil de saude,
+ * agente confuso falando sozinho e pior do que agente calado.
+ */
+export async function generateOfertaReply({ dados = {}, historico = [], mensagem, temImagem = false }) {
+  // Imagem nao passa pela LLM: comprovante e trabalho humano, e foto de corpo,
+  // exame ou remedio e exatamente o que o agente nao pode comentar.
+  if (temImagem) {
+    return {
+      mensagem: 'Recebi! Vou confirmar aqui com a equipe e já te retorno, tá?',
+      handoff: true,
+      handoff_motivo: 'comprovante',
+      desfecho: 'em_andamento',
+      objecao: null,
+    };
+  }
+
+  const resposta = await client.messages.create({
+    model: 'claude-sonnet-4-5',
+    max_tokens: 1200,
+    system: OFERTA_PROMPT,
+    messages: [
+      ...sanitizeConversationHistory(historico),
+      { role: 'user', content: `
+${contextoOferta(dados)}
+
+Mensagem dela agora: "${mensagem}"
+
+Responda no formato JSON definido.` },
+    ],
+  });
+
+  const bruto = (resposta.content[0]?.text || '').replace(/```json|```/g, '').trim();
+  try {
+    const p = JSON.parse(bruto);
+    const desfechos = ['fechou', 'nao_fechou', 'em_andamento'];
+    const motivos = ['nao_sabia', 'comprovante', 'sofrimento', 'pedido_da_lead', 'outro'];
+    const desfecho = desfechos.includes(p.desfecho) ? p.desfecho : 'em_andamento';
+    const motivo = motivos.includes(p.handoff_motivo) ? p.handoff_motivo : null;
+    return {
+      mensagem: String(p.mensagem || '').trim(),
+      handoff: p.handoff === true || !!motivo || desfecho === 'fechou',
+      handoff_motivo: motivo || (desfecho === 'fechou' ? 'comprovante' : null),
+      desfecho,
+      objecao: typeof p.objecao === 'string' && p.objecao !== 'null' ? p.objecao : null,
+    };
+  } catch {
+    console.error('[oferta] IA nao devolveu JSON valido:', bruto.slice(0, 200));
+    return {
+      mensagem: '', handoff: true, handoff_motivo: 'outro',
+      desfecho: 'em_andamento', objecao: null,
+    };
+  }
+}
 
 /**
  * Primeira mensagem da confirmacao de pre-consulta. Texto puro: e ela que abre

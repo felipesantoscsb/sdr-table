@@ -175,6 +175,23 @@ export async function setConfirmacaoMode(phone, leadData) {
   return true;
 }
 
+// Oferta pos pre-consulta. Guarda o contexto da consulta junto: e dele que
+// sai a personalizacao, e ele precisa sobreviver entre o D+0 e o D+7.
+export async function setOfertaMode(phone, leadData) {
+  if (await isBlocked(phone)) {
+    console.log(`Oferta ignorada: ${normalizePhone(phone)} esta bloqueado`);
+    return false;
+  }
+  const conv = await getConv(phone);
+  conv.isActiveLead = true;
+  conv.handedOff = false;
+  conv.mode = 'oferta';
+  conv.leadData = { ...(conv.leadData || {}), ...(leadData || {}) };
+  await saveConv(phone, conv);
+  await safeSet(PREFIX.lastSeen + normalizePhone(phone), Date.now());
+  return true;
+}
+
 export async function isHandedOff(phone) {
   const conv = await getConv(phone);
   return conv.handedOff;
