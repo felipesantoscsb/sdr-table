@@ -39,6 +39,7 @@ export async function handleConfirmacaoPreConsulta(req, res) {
   const nome  = req.body?.nome || null;
   const nutri = req.body?.nutri || null;
   const quando = req.body?.quando || null; // já formatado em BRT pelo Hub
+  const jornadaUrl = req.body?.jornada_url || null;
 
   // Responde antes de enviar: o Hub nao pode ficar preso esperando a LLM, e o
   // lote da hora inteira nao pode travar por causa de uma lead.
@@ -51,11 +52,11 @@ export async function handleConfirmacaoPreConsulta(req, res) {
       cardId,
       nutri,
       origem: 'confirmacao_preconsulta',
-      confirmacao: { card_id: cardId, quando, nutri },
+      confirmacao: { card_id: cardId, quando, nutri, jornada_url: jornadaUrl },
     });
     if (!ok) return; // bloqueado entre a checagem e agora
 
-    const mensagem = await generateConfirmacaoMessage({ nome, quando, nutri });
+    const mensagem = await generateConfirmacaoMessage({ nome, quando, nutri, jornadaUrl });
     if (!mensagem) {
       console.error(`[confirmacao] mensagem vazia para ${phone} — nada enviado`);
       return;

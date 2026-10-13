@@ -53,8 +53,12 @@ function contextoOferta(d = {}) {
     `Nome: ${d.nome || 'nao informado'}`,
     `Nutricionista que atendeu: ${d.nutri || 'nao informada'}`,
     `Produto recomendado por ela: ${d.produto || 'nao informado'}`,
-    `Link da oferta: ${d.oferta_url || 'nao informado'}`,
-    d.jornada_url ? `Jornada personalizada (metodologia): ${d.jornada_url}` : null,
+    // A jornada e o link que a lead JA TEM, desde a confirmacao da
+    // pre-consulta, e agora ela carrega a oferta dentro. E esse que vai na
+    // mensagem: mandar um link cru de checkout desperdicaria o documento que
+    // foi feito para ela e obrigaria a escolher qual abrir.
+    d.jornada_url ? `Jornada dela, JA ATUALIZADA com o acompanhamento indicado: ${d.jornada_url}` : null,
+    !d.jornada_url && d.oferta_url ? `Link da oferta (use so porque nao ha jornada): ${d.oferta_url}` : null,
     d.perfil ? `Padrao do Protocolo Raiz: ${d.perfil}` : null,
     d.veio_do_pr ? 'Ela ja comprou o Protocolo Raiz antes.' : 'Ela entrou direto na pre-consulta, sem passar pelo Protocolo Raiz.',
     d.obs_form ? `\nO que ela trouxe no formulario da pre-consulta:\n${String(d.obs_form).slice(0, 1500)}` : null,
@@ -67,7 +71,7 @@ function contextoOferta(d = {}) {
 // O que cada toque da regua deve fazer. Explicito no prompt porque a diferenca
 // entre eles e justamente o que impede a regua de virar quatro cobrancas.
 const INSTRUCAO_POR_TOQUE = {
-  0: `Primeira mensagem. Retome ALGO CONCRETO que ela trouxe na consulta, diga o que a nutricionista recomendou e por que, e mande o link da oferta. Tres a cinco linhas.`,
+  0: `Primeira mensagem. Retome ALGO CONCRETO que ela trouxe na consulta e diga o que a nutricionista recomendou e por que. Diga que a jornada DELA foi atualizada agora com esse acompanhamento, e REENVIE o link da jornada para facilitar o acesso. Tres a cinco linhas.`,
   1: `Ela nao respondeu a primeira mensagem. NAO repita a oferta e NAO mande o link de novo. Faca UMA pergunta que abra espaco para o nao: o que pesou, o que ficou faltando. Duas linhas.`,
   3: `Ela segue sem responder. Traga um ANGULO NOVO, usando algo especifico do que ela contou na consulta ou no quiz. Nao cobre, nao pergunte "viu minha mensagem". Tres linhas no maximo.`,
   7: `Ultimo contato. ENCERRE de forma explicita e sem culpa: diga que vai deixar por aqui e que se ela mudar de ideia e so chamar. Nao faca pergunta, nao mande link, nao deixe gancho. Duas linhas.`,
@@ -155,7 +159,7 @@ Responda no formato JSON definido.` },
  * a conversa. As respostas seguintes sao conduzidas pelo mesmo prompt, em
  * generateReply com mode 'confirmacao'.
  */
-export async function generateConfirmacaoMessage({ nome, quando, nutri }) {
+export async function generateConfirmacaoMessage({ nome, quando, nutri, jornadaUrl }) {
   const resposta = await client.messages.create({
     model: 'claude-sonnet-4-5',
     max_tokens: 400,
@@ -166,9 +170,14 @@ Escreva APENAS a primeira mensagem, em texto puro (sem JSON).
 Nome: ${nome || 'nao informado'}
 Pre-consulta: ${quando || 'amanha'}
 Nutricionista: ${nutri || 'nossa nutricionista'}
+${jornadaUrl ? `Jornada preparada para ela: ${jornadaUrl}` : ''}
 
 Cumprimente pelo primeiro nome, diga quando e a pre-consulta e pergunte se ela
-confirma a presenca. Duas a tres linhas no maximo.` }],
+confirma a presenca. Duas a tres linhas no maximo.${jornadaUrl ? `
+
+Mande TAMBEM o link da jornada, dizendo em uma frase que foi preparado para
+ela a partir do que contou. Ver que alguem preparou algo e o que faz a pessoa
+aparecer. Nao descreva o conteudo, so convide a dar uma olhada.` : ''}` }],
   });
   return resposta.content[0].text.trim();
 }

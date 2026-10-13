@@ -71,3 +71,20 @@ test('oferta intercepta antes da máquina do SDR', () => {
   assert.ok(i > 0);
   assert.ok(i < zapi.indexOf('generateReply(phone'));
 });
+
+test('o D+0 reenvia a jornada atualizada, não um link cru de checkout', () => {
+  const t = ai.slice(ai.indexOf('const INSTRUCAO_POR_TOQUE'), ai.indexOf('export async function generateOfertaMessage'));
+  assert.match(t, /jornada DELA foi atualizada agora[^]*REENVIE o link da jornada/);
+  const ctx = ai.slice(ai.indexOf('function contextoOferta'), ai.indexOf('const INSTRUCAO_POR_TOQUE'));
+  assert.match(ctx, /JA ATUALIZADA com o acompanhamento indicado/);
+  // o link cru só entra se não houver jornada
+  assert.match(ctx, /!d\.jornada_url && d\.oferta_url/);
+});
+
+test('a confirmação manda a jornada junto — é ela que faz a lead aparecer', () => {
+  const fn = ai.slice(ai.indexOf('export async function generateConfirmacaoMessage'), ai.indexOf('export async function generateConfirmacaoReply'));
+  assert.match(fn, /jornadaUrl/);
+  assert.match(fn, /Mande TAMBEM o link da jornada/);
+  const h = ler('src/confirmacao/handler.js');
+  assert.match(h, /jornada_url: jornadaUrl/);
+});
