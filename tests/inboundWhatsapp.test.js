@@ -344,6 +344,35 @@ test('o cliente do Hub só confia em hub_context booleano', () => {
   assert.match(client, /typeof res\.data\?\.hub_context === 'boolean' \? res\.data\.hub_context : null/);
 });
 
+// Caso Lorena: humano respondeu na mão e o agente precisa entrar depois, sem
+// mandar boas-vindas por cima de uma conversa que já começou.
+test('assumir conversa não envia nada na hora', () => {
+  const h = ler('src/inbound/handler.js');
+  const fn = h.slice(h.indexOf('export async function assumirInbound'),
+                     h.indexOf('export async function conduzirInbound'));
+  assert.ok(!/sendInboundMessage/.test(fn), 'assumir não pode disparar mensagem');
+  assert.match(fn, /setInboundMode/);
+  assert.match(fn, /assumida: true/);
+  // Paciente continua protegido mesmo com comando manual.
+  assert.match(fn, /bloqueioDefinitivoSdr/);
+  assert.match(fn, /isBlocked/);
+});
+
+test('conversa assumida instrui o modelo a não se reapresentar', () => {
+  const ai = ler('src/ai/anthropic.js');
+  assert.match(ai, /NÃO se apresente de novo e NÃO dê boas-vindas/);
+  // E o flag precisa chegar lá a partir do estado salvo.
+  const h = ler('src/inbound/handler.js');
+  assert.match(h, /assumida: estado\.assumida === true/);
+});
+
+test('o comando /agente é restrito ao número da Karina', () => {
+  const wh = ler('src/webhook/zapiHandler.js');
+  const posGuarda = wh.indexOf("phone === normalizePhone(config.sdr.phone)");
+  const posComando = wh.indexOf("startsWith('/agente')");
+  assert.ok(posGuarda > 0 && posComando > posGuarda, '/agente tem de estar dentro da guarda da SDR');
+});
+
 test('o que não é conversa do inbound é repassado ao Hub, nunca engolido', () => {
   const wh = ler('src/webhook/zapiInboundHandler.js');
   // Os quatro caminhos de saída que não são o agente precisam repassar.

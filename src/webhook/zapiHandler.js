@@ -6,6 +6,7 @@ import { cancelQuizCadence } from '../quizCadence.js';
 import { generateReply, generateHandoffBriefing, generateConsultivo, generateFirstContact } from '../ai/anthropic.js';
 import { conduzirConfirmacao } from '../confirmacao/handler.js';
 import { conduzirOferta } from '../oferta/handler.js';
+import { assumirInbound } from '../inbound/handler.js';
 import { sendMessage, notifySDR, notifySDRHandoff, notifySDRRetomada, notifySDRRedflag, notifySDRTurnLimit, notifyError, notifySDRManualReview, getSendErrorDetail } from '../zapi/sender.js';
 import { handlePlanoCommand } from '../planos/handler.js';
 import { getQuizPreData } from './quizPreHandler.js';
@@ -113,6 +114,31 @@ export async function handleZapiMessage(req, res) {
         await setHandedOff(targetPhone);
         await blockPhone(targetPhone);
         await avisaKarina(`✅ Lead ${targetPhone} desativada e bloqueada. Use /unstop ${targetPhone} para reverter.`);
+        return;
+      }
+      // /agente <telefone> [| o que você já escreveu]
+      // O agente assume uma conversa do número do inbound que um humano
+      // começou. Não manda nada agora: a próxima mensagem da lead é que
+      // passa a ser conduzida por ele.
+      if (trimmed.toLowerCase().startsWith('/agente')) {
+        const resto = trimmed.slice(7).trim();
+        const [alvoRaw, ...ctx] = resto.split('|');
+        const alvo = normalizePhone((alvoRaw || '').trim());
+        if (!alvo) {
+          await avisaKarina('Uso: /agente 5511999999999\nOu, para o agente saber o que você já disse:\n/agente 5511999999999 | texto que você mandou');
+          return;
+        }
+        const r = await assumirInbound({ phone: alvo, contexto: ctx.join('|').trim() });
+        if (r.ok) {
+          await avisaKarina(`🤝 Agente assumiu ${alvo}. Ele não vai mandar nada agora: responde quando ela escrever, sem se reapresentar.`);
+        } else {
+          const motivo = {
+            desligado:   'o inbound está desligado no código',
+            bloqueado:   'esse número está bloqueado (/unstop para liberar)',
+            ja_paciente: `já tem vínculo no Hub (${r.detalhe || 'paciente ou venda'}) — atenda na mão`,
+          }[r.motivo] || r.motivo;
+          await avisaKarina(`⚠️ Não assumi ${alvo}: ${motivo}.`);
+        }
         return;
       }
       if (trimmed.toLowerCase().startsWith('/plano')) {

@@ -160,6 +160,43 @@ export async function iniciarInbound({ phone, origem = 'direto', ctwa = null, me
 }
 
 /**
+ * O agente ASSUME uma conversa que um humano já começou.
+ *
+ * Diferença para iniciarInbound: não manda mensagem nenhuma agora. Só prepara
+ * o estado, para que a PRÓXIMA mensagem da lead seja conduzida normalmente.
+ * Mandar boas-vindas por cima de uma conversa em andamento seria o contrário
+ * do que a pessoa espera — ela já falou com gente.
+ *
+ * `contexto` é o que o humano já escreveu, para o agente não repetir a mesma
+ * pergunta. Entra no histórico como fala do assistente, que é o que de fato foi.
+ */
+export async function assumirInbound({ phone, contexto = '', origem = 'direto' }) {
+  if (!inboundAtivo()) return { ok: false, motivo: 'desligado' };
+  if (await isBlocked(phone)) return { ok: false, motivo: 'bloqueado' };
+
+  const eleg = await verificarElegibilidadeContatoSdr({
+    phone, leadData: { nome: null, whatsapp: phone },
+    source: `inbound_${origem}`, purpose: 'activation',
+  }).catch(() => ({ allowed: true, reason: 'check indisponível' }));
+
+  if (bloqueioDefinitivoSdr(eleg)) {
+    return { ok: false, motivo: 'ja_paciente', detalhe: eleg.reason };
+  }
+
+  const ok = await setInboundMode(phone, {
+    nome: null, whatsapp: phone, origem, ctwa: null, source: `inbound_${origem}`,
+  });
+  if (!ok) return { ok: false, motivo: 'bloqueado' };
+
+  // Marca que a conversa já estava rolando: o agente não se reapresenta.
+  await setInboundState(phone, { assumida: true, mensagensDoAgente: contexto ? 1 : 0 });
+  if (contexto) await addMessage(phone, 'assistant', contexto).catch(() => {});
+
+  console.log(`🤝 [inbound] agente assumiu a conversa de ${phone} (origem ${origem})`);
+  return { ok: true };
+}
+
+/**
  * Conduz cada resposta da lead. Caminho próprio, interceptado antes da máquina
  * do SDR: score por formulário, branch Evelyn e oferta de Protocolo Raiz por
  * tier não se aplicam a quem chegou sem preencher nada.
@@ -181,6 +218,7 @@ export async function conduzirInbound({ phone, mensagem, history = [] }) {
     qualificacao: estado.qualificacao,
     disponibilidade: estado.disponibilidade,
     mensagensDoAgente: estado.mensagensDoAgente || 0,
+    assumida: estado.assumida === true,
   });
 
   // Estado apurado é salvo ANTES de qualquer envio: se o envio falhar, o que a

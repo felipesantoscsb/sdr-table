@@ -890,7 +890,7 @@ function pontuarInbound(q) {
   return Math.min(10, s);
 }
 
-function contextoInbound({ origem, qualificacao, disponibilidade, nome, mensagensDoAgente }) {
+function contextoInbound({ origem, qualificacao, disponibilidade, nome, mensagensDoAgente, assumida }) {
   const q = qualificacao || {};
   const d = disponibilidade || {};
   const falta = [];
@@ -918,6 +918,9 @@ function contextoInbound({ origem, qualificacao, disponibilidade, nome, mensagen
     falta.length ? `Ainda falta descobrir: ${falta.join(', ')}` : 'Qualificação completa.',
     q.completa && (!d.turnos?.length || !d.dias?.length)
       ? 'A qualificação está completa. Se ela demonstrou interesse, peça turnos E dias da semana.'
+      : '',
+    assumida
+      ? 'ATENÇÃO: esta conversa foi iniciada por uma PESSOA da equipe, não por você. NÃO se apresente de novo e NÃO dê boas-vindas. Continue de onde ela parou, como se fosse a mesma conversa.'
       : '',
     'Devolva o estado CUMULATIVO: tudo o que você já sabe, não só o que apareceu agora.',
   ].filter(Boolean).join('\n');
@@ -949,7 +952,7 @@ Responda no formato JSON definido, com etapa "acolhimento".` }],
  */
 export async function generateInboundReply({
   historico = [], mensagem, origem = 'direto', nome = '',
-  qualificacao = {}, disponibilidade = {}, mensagensDoAgente = 0,
+  qualificacao = {}, disponibilidade = {}, mensagensDoAgente = 0, assumida = false,
 }) {
   const resposta = await client.messages.create({
     model: config.anthropic.model,
@@ -958,7 +961,7 @@ export async function generateInboundReply({
     messages: [
       ...sanitizeConversationHistory(historico),
       { role: 'user', content: `
-${contextoInbound({ origem, qualificacao, disponibilidade, nome, mensagensDoAgente })}
+${contextoInbound({ origem, qualificacao, disponibilidade, nome, mensagensDoAgente, assumida })}
 
 Mensagem dela agora: "${mensagem}"
 
