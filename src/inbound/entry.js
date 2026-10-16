@@ -36,6 +36,11 @@ const ORIGENS = [
   { origem: 'anuncio', marcas: ['vim pelo anuncio', 'vi o anuncio', 'pelo anuncio'] },
   { origem: 'story',   marcas: ['vim pelo story', 'vim pelos stories', 'pelo story', 'pelos stories'] },
   { origem: 'bio',     marcas: ['vim pela bio', 'pelo perfil', 'pela bio'] },
+  // tableclinic.com.br. 'site' e 'blog' são separados de propósito: o site é
+  // movido a busca, e a pergunta que decide investir em conteúdo é se o artigo
+  // converte ou só traz visita.
+  { origem: 'blog',    marcas: ['vim pelo blog', 'pelo blog', 'vim pelo artigo', 'pelo artigo'] },
+  { origem: 'site',    marcas: ['vim pelo site', 'pelo site'] },
 ];
 
 /**
@@ -88,4 +93,6 @@ export const FRASES = {
   anuncio: 'Oi! Vim pelo anúncio e quero saber mais sobre o acompanhamento da Table Clinic',
   story:   'Oi! Vim pelo story e quero saber mais sobre o acompanhamento da Table Clinic',
   bio:     'Oi! Vim pela bio e quero saber mais sobre o acompanhamento da Table Clinic',
+  site:    'Oi! Vim pelo site e quero saber mais sobre o acompanhamento da Table Clinic',
+  blog:    'Oi! Vim pelo blog e quero saber mais sobre o acompanhamento da Table Clinic',
 };

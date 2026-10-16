@@ -32,10 +32,18 @@ const resp = (obj, qAnt = {}, dAnt = {}) =>
 
 // ─── Divisor de tráfego: o risco número um deste fluxo ───────────────────────
 
-test('frase do anúncio e do story abrem conversa, com origem distinta', () => {
-  assert.equal(detectarEntrada({}, FRASES.anuncio).origem, 'anuncio');
-  assert.equal(detectarEntrada({}, FRASES.story).origem, 'story');
-  assert.equal(detectarEntrada({}, FRASES.bio).origem, 'bio');
+test('cada frase pronta casa com a sua própria origem', () => {
+  // Invariante que não pode quebrar: se uma frase deixar de casar com a chave
+  // dela, a lead ainda é atendida mas entra com a origem errada — e o relatório
+  // de origem passa a mentir em silêncio.
+  for (const [chave, frase] of Object.entries(FRASES)) {
+    assert.equal(detectarEntrada({}, frase).origem, chave, `${chave} casou errado`);
+  }
+  assert.deepEqual(
+    Object.keys(FRASES).sort(),
+    ['anuncio', 'bio', 'blog', 'site', 'story'],
+    'origem nova precisa de frase pronta e de link atualizado na superfície'
+  );
 });
 
 test('resposta de pesquisa de satisfação NUNCA abre conversa de captação', () => {
