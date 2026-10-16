@@ -36,6 +36,7 @@ import { iniciarInbound, conduzirInbound, inboundAtivo } from '../inbound/handle
 import { verificarElegibilidadeContatoSdr } from '../hub/client.js';
 import { tratarComandoInbound, ehNumeroDaEquipe } from '../inbound/comandos.js';
 import { sendInboundMessage } from '../zapi/senderInbound.js';
+import { audioDoPayload, transcrever, transcricaoDisponivel, PEDIDO_DE_TEXTO } from '../inbound/transcricao.js';
 
 const HUB_OPS_URL = process.env.ZAPI_INBOUND_FALLBACK_URL
   || 'https://crm.tableclinic.com.br/webhook/zapi/ops';
@@ -113,8 +114,39 @@ export async function handleZapiInbound(req, res) {
       return;
     }
 
-    const texto = body.text?.message || (typeof body.text === 'string' ? body.text : null)
+    let texto = body.text?.message || (typeof body.text === 'string' ? body.text : null)
       || body.image?.caption || null;
+
+    // ÁUDIO. Muita lead abre a conversa mandando nota de voz, e até 16/10/2026
+    // isso caía no repasse — ou seja, o agente nunca atendia quem fala em vez
+    // de digitar. Transcreve e segue o fluxo normal, como se fosse texto.
+    //
+    // A transcrição acontece ANTES de qualquer decisão de rota, porque é ela
+    // que transforma "mídia sem texto" em mensagem de verdade. Nunca lança:
+    // falhou, a lead recebe um pedido para escrever.
+    const audio = !texto ? audioDoPayload(body) : null;
+    if (audio) {
+      if (!transcricaoDisponivel()) {
+        registrarDecisao('audio_sem_transcricao');
+        console.log(`[zapi-inbound] áudio de ${phone} e transcrição desligada — repassando`);
+        await repassarParaOHub(body);
+        return;
+      }
+      const transcrito = await transcrever(audio);
+      if (transcrito) {
+        registrarDecisao('audio_transcrito');
+        texto = transcrito;
+      } else {
+        // Não repassa em silêncio: ela mandou áudio e merece resposta. Pedir o
+        // texto é melhor que adivinhar, e melhor que esperar um humano.
+        registrarDecisao('audio_ilegivel');
+        console.log(`[zapi-inbound] áudio de ${phone} não transcrito — pedindo texto`);
+        await sendInboundMessage(phone, PEDIDO_DE_TEXTO).catch(err =>
+          console.error(`[zapi-inbound] pedido de texto falhou: ${err.message}`));
+        await repassarParaOHub(body);
+        return;
+      }
+    }
 
     // COMANDO DA EQUIPE antes de qualquer tratamento de lead. Sem isto, a
     // Karina mandando /retomar para ESTE número via o texto dela virar
