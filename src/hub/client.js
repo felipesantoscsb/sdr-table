@@ -174,6 +174,9 @@ export async function verificarElegibilidadeContatoSdr({ phone, leadData = {}, s
       reason: res.data?.reason || null,
       patient: res.data?.patient || null,
       card: res.data?.card || null,
+      // true = o telefone já existe no Hub (lead, paciente ou conversa).
+      // null = o Hub não respondeu esse campo; quem usa decide o fail-safe.
+      hubContext: typeof res.data?.hub_context === 'boolean' ? res.data.hub_context : null,
     };
   } catch (err) {
     const status = err.response?.status;

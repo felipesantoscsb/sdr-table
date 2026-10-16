@@ -33,6 +33,7 @@ import {
 import { aggregate } from '../conversation/aggregator.js';
 import { detectarEntrada } from '../inbound/entry.js';
 import { iniciarInbound, conduzirInbound, inboundAtivo } from '../inbound/handler.js';
+import { verificarElegibilidadeContatoSdr } from '../hub/client.js';
 
 const HUB_OPS_URL = process.env.ZAPI_INBOUND_FALLBACK_URL
   || 'https://crm.tableclinic.com.br/webhook/zapi/ops';
@@ -151,8 +152,36 @@ export async function handleZapiInbound(req, res) {
       return;
     }
 
-    // ── 3. Todo o resto: pesquisa, lembrete do PR, número desconhecido ───────
-    console.log(`[zapi-inbound] sem conversa e sem frase de entrada (${phone}) — repassando para o Hub`);
+    // ── 3. Sem frase, mas pode ser lead nova mesmo assim ─────────────────────
+    //
+    // Em 16/10/2026 a Lorena mandou só "Oi" e não recebeu nada: sem frase, caía
+    // direto no repasse, e lá o Hub manda para o número B2B quem não tem
+    // vínculo — justamente a população que este número existe para atender.
+    //
+    // O discriminador certo não é a frase, é o VÍNCULO: quem responde pesquisa
+    // de satisfação ou lembrete do formulário do PR sempre já existe no Hub
+    // (é paciente ou lead com card). Telefone sem nenhum vínculo que escreve
+    // para cá é gente nova chegando pelo anúncio, pelo site ou pela bio.
+    //
+    // Sem a frase não dá para saber a origem: entra como 'direto'.
+    if (texto && inboundAtivo()) {
+      const eleg = await verificarElegibilidadeContatoSdr({
+        phone, leadData: { nome: null, whatsapp: phone },
+        source: 'inbound_direto', purpose: 'activation',
+      }).catch(() => ({ hubContext: null }));
+
+      if (eleg.hubContext === false) {
+        console.log(`🎯 [zapi-inbound] ${phone} sem vínculo no Hub e sem frase — tratando como lead nova (direto)`);
+        await iniciarInbound({ phone, origem: 'direto', ctwa: null, mensagemOriginal: texto });
+        return;
+      }
+      // hubContext true (já existe) ou null (Hub mudo) → repassa. O fail-safe
+      // aponta para o humano de propósito: agente falando com paciente que só
+      // respondeu uma pesquisa é pior que um aviso a mais para a Karina.
+      console.log(`[zapi-inbound] ${phone} com vínculo no Hub (${eleg.hubContext === null ? 'check indisponível' : 'conhecido'}) — repassando`);
+    }
+
+    console.log(`[zapi-inbound] repassando mensagem de ${phone} para o Hub`);
     await repassarParaOHub(body);
 
   } catch (err) {

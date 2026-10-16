@@ -318,6 +318,32 @@ test('o inbound nunca envia pela instância da Karina', () => {
   assert.match(sender, /if \(!configured\)[^]*skipped: true/);
 });
 
+// 16/10/2026: a Lorena mandou só "Oi" e não recebeu nada. Sem frase, caía no
+// repasse; e lá o Hub avisa o número B2B quando o telefone não tem vínculo —
+// justamente a população que este número existe para atender.
+test('lead nova sem a frase ainda é atendida, usando o vínculo como critério', () => {
+  const wh = ler('src/webhook/zapiInboundHandler.js');
+  const corpo = wh.slice(wh.indexOf('export async function handleZapiInbound'));
+  assert.match(corpo, /hubContext === false/);
+  assert.match(corpo, /iniciarInbound\(\{ phone, origem: 'direto'/);
+  // A ordem importa: a frase é tentada primeiro, porque ela carrega a origem.
+  assert.ok(corpo.indexOf('detectarEntrada(body') < corpo.indexOf('hubContext === false'));
+});
+
+test('sem a frase, o fail-safe aponta para o humano', () => {
+  // Hub mudo (null) ou telefone conhecido: repassa. Agente conversando com
+  // paciente que só respondeu uma pesquisa é pior que um aviso a mais.
+  const wh = ler('src/webhook/zapiInboundHandler.js');
+  const corpo = wh.slice(wh.indexOf('export async function handleZapiInbound'));
+  assert.match(corpo, /=== false/, 'só o false explícito pode abrir conversa');
+  assert.ok(!/hubContext !== true/.test(corpo), 'null não pode ser tratado como lead nova');
+});
+
+test('o cliente do Hub só confia em hub_context booleano', () => {
+  const client = ler('src/hub/client.js');
+  assert.match(client, /typeof res\.data\?\.hub_context === 'boolean' \? res\.data\.hub_context : null/);
+});
+
 test('o que não é conversa do inbound é repassado ao Hub, nunca engolido', () => {
   const wh = ler('src/webhook/zapiInboundHandler.js');
   // Os quatro caminhos de saída que não são o agente precisam repassar.
