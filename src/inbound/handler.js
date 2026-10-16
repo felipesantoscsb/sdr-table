@@ -19,8 +19,9 @@ import {
 import {
   setInboundMode, getInboundState, setInboundState, addMessage,
   setHandedOff, isBlocked, normalizePhone, deactivateLead, getLeadData,
+  temConversaInbound,
 } from '../conversation/store.js';
-import { sendInboundMessage } from '../zapi/senderInbound.js';
+import { sendInboundMessage, inboundConfigStatus } from '../zapi/senderInbound.js';
 import { notifyInbound, notifyInboundNova } from '../zapi/sender.js';
 import {
   garantirLeadCaptacaoNoHub, migrarParaPreConsulta,
@@ -192,8 +193,24 @@ export async function assumirInbound({ phone, contexto = '', origem = 'direto' }
   await setInboundState(phone, { assumida: true, mensagensDoAgente: contexto ? 1 : 0 });
   if (contexto) await addMessage(phone, 'assistant', contexto).catch(() => {});
 
+  // Confere o que FOI GRAVADO, não o que eu acho que gravei. A confirmação
+  // para a Karina vale pelo que ela prova, e "assumi" sem checar o estado é
+  // promessa, não prova.
+  const salvo = await getInboundState(phone);
+  const modoOk = await temConversaInbound(phone);
+  const zapi = inboundConfigStatus();
+
   console.log(`🤝 [inbound] agente assumiu a conversa de ${phone} (origem ${origem})`);
-  return { ok: true };
+  return {
+    ok: true,
+    diagnostico: {
+      modoGravado: modoOk && salvo.assumida === true,
+      envioConfigurado: zapi.configured,
+      variaveisFaltando: zapi.missing,
+      vinculoNoHub: eleg.hubContext,
+      contextoNoHistorico: !!contexto,
+    },
+  };
 }
 
 /**

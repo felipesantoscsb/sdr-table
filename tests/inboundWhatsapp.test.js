@@ -366,11 +366,39 @@ test('conversa assumida instrui o modelo a não se reapresentar', () => {
   assert.match(h, /assumida: estado\.assumida === true/);
 });
 
-test('o comando /agente é restrito ao número da Karina', () => {
+test('comando só da equipe, e a equipe é exatamente SDR_PHONE + NUMERO_BACKUP', () => {
   const wh = ler('src/webhook/zapiHandler.js');
-  const posGuarda = wh.indexOf("phone === normalizePhone(config.sdr.phone)");
+  const posGuarda = wh.indexOf('if (ehNumeroDaEquipe(phone))');
   const posComando = wh.indexOf("startsWith('/agente')");
-  assert.ok(posGuarda > 0 && posComando > posGuarda, '/agente tem de estar dentro da guarda da SDR');
+  assert.ok(posGuarda > 0, 'guarda da equipe sumiu');
+  assert.ok(posComando > posGuarda, '/agente tem de estar dentro da guarda');
+
+  // A lista é a MESMA que o sender já blinda contra bloqueio. Se divergirem,
+  // um número recebe notificação mas não comanda, ou pior, comanda sem receber.
+  const fn = wh.slice(wh.indexOf('function ehNumeroDaEquipe'), wh.indexOf('function avisaKarina'));
+  assert.match(fn, /config\.sdr\.phone, process\.env\.NUMERO_BACKUP/);
+  const sender = ler('src/zapi/sender.js');
+  const prot = sender.slice(sender.indexOf('function isProtectedPhone'));
+  assert.match(prot, /config\.sdr\.phone, process\.env\.NUMERO_BACKUP/);
+});
+
+test('número da equipe não pode ser bloqueado por /stop', () => {
+  // Bloquear o próprio inbox silenciaria handoff, red flag e erro de uma vez.
+  const wh = ler('src/webhook/zapiHandler.js');
+  assert.match(wh, /if \(ehNumeroDaEquipe\(targetPhone\)\) \{/);
+});
+
+test('a confirmação do /agente prova o estado, não promete', () => {
+  // "Assumi" sem checar o que foi gravado é promessa. A Karina precisa saber
+  // se ele VAI responder, não que eu tentei.
+  const h = ler('src/inbound/handler.js');
+  const fn = h.slice(h.indexOf('export async function assumirInbound'),
+                     h.indexOf('export async function conduzirInbound'));
+  assert.match(fn, /const salvo = await getInboundState\(phone\)/);
+  assert.match(fn, /temConversaInbound\(phone\)/);
+  assert.match(fn, /inboundConfigStatus\(\)/);
+  const wh = ler('src/webhook/zapiHandler.js');
+  assert.match(wh, /ele NÃO vai responder. Siga na mão/);
 });
 
 test('o que não é conversa do inbound é repassado ao Hub, nunca engolido', () => {

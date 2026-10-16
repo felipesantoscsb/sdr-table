@@ -85,7 +85,7 @@ export async function handleZapiMessage(req, res) {
     if (!messageText) return;
 
     // Mensagem da Karina
-    if (phone === normalizePhone(config.sdr.phone)) {
+    if (ehNumeroDaEquipe(phone)) {
       const trimmed = messageText.trim();
       if (trimmed.toLowerCase().startsWith('/unstop')) {
         const targetPhone = normalizePhone(trimmed.slice(7).trim());
@@ -104,8 +104,8 @@ export async function handleZapiMessage(req, res) {
           return;
         }
         // Bloquear o próprio número da SDR silenciaria todas as notificações.
-        if (targetPhone === normalizePhone(config.sdr.phone)) {
-          await avisaKarina('⚠️ Não dá para bloquear o próprio número da SDR — isso silenciaria todas as notificações.');
+        if (ehNumeroDaEquipe(targetPhone)) {
+          await avisaKarina('⚠️ Não dá para bloquear um número da equipe — isso silenciaria as notificações.');
           return;
         }
         // handedOff silencia a conversa atual; blockPhone impede que qualquer
@@ -130,7 +130,20 @@ export async function handleZapiMessage(req, res) {
         }
         const r = await assumirInbound({ phone: alvo, contexto: ctx.join('|').trim() });
         if (r.ok) {
-          await avisaKarina(`🤝 Agente assumiu ${alvo}. Ele não vai mandar nada agora: responde quando ela escrever, sem se reapresentar.`);
+          const d = r.diagnostico || {};
+          const linhas = [
+            `🤝 *Agente assumiu ${alvo}*`,
+            ``,
+            `${d.modoGravado ? '✅' : '❌'} Conversa gravada em modo inbound`,
+            `${d.envioConfigurado ? '✅' : '❌'} Instância de envio configurada${d.envioConfigurado ? '' : ` (falta: ${(d.variaveisFaltando || []).join(', ')})`}`,
+            `${d.contextoNoHistorico ? '✅' : '⚠️'} ${d.contextoNoHistorico ? 'Sua mensagem está no histórico dele' : 'Sem contexto: ele pode repetir sua pergunta'}`,
+            `${d.vinculoNoHub === false ? '✅' : d.vinculoNoHub === true ? 'ℹ️' : '⚠️'} ${d.vinculoNoHub === false ? 'Lead nova, sem vínculo no Hub' : d.vinculoNoHub === true ? 'Já tem vínculo no Hub' : 'Hub não respondeu o vínculo'}`,
+            ``,
+            d.modoGravado && d.envioConfigurado
+              ? `Ele NÃO manda nada agora. Na próxima mensagem dela, responde sem se reapresentar, qualifica e te chama quando tiver turno e dias.`
+              : `⚠️ Algo acima falhou: ele NÃO vai responder. Siga na mão.`,
+          ];
+          await avisaKarina(linhas.join('\n'));
         } else {
           const motivo = {
             desligado:   'o inbound está desligado no código',
@@ -200,6 +213,17 @@ export async function handleZapiMessage(req, res) {
   } catch (err) {
     console.error('❌ Erro no handler da Zapi:', err.message);
   }
+}
+
+// Números da equipe: aceitam comando (/stop, /agente, /plano) e caem no modo
+// consultivo. É a MESMA lista que o sender já blinda contra bloqueio e para
+// quem já manda todo handoff, red flag e erro — dar comando a quem já recebe
+// tudo é coerente; manter só o SDR_PHONE era inconsistência, não segurança.
+function ehNumeroDaEquipe(phone) {
+  const alvo = normalizePhone(String(phone || ''));
+  return [config.sdr.phone, process.env.NUMERO_BACKUP]
+    .filter(Boolean)
+    .some(p => normalizePhone(String(p)) === alvo);
 }
 
 function avisaKarina(texto) {
