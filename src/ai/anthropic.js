@@ -718,3 +718,254 @@ export async function classifyCampaignIntent(text) {
     return { positive: hasPos, source: 'fallback' };
   }
 }
+
+// ─── Inbound WhatsApp (anúncio / story) ──────────────────────────────────────
+//
+// Fluxo novo, instância Z-API própria. A diferença em relação ao SDR normal é
+// que aqui NÃO existe formulário: a qualificação toda é feita na conversa, e
+// precisa ser mais robusta, porque é ela que decide se a lead merece a agenda
+// de uma nutricionista.
+//
+// O que é validado em CÓDIGO e não no prompt: os enums, e o gate de handoff.
+// Prompt não é mecanismo de segurança — a lição de 14/10/2026 foi essa.
+
+const INBOUND_PROMPT = readFileSync(
+  join(__dirname, '../../config/prompts/inbound.txt'),
+  'utf-8'
+);
+
+const INBOUND_PADROES = ['escape', 'ciclo', 'culpa', 'autoestima', 'rotina', 'saude', 'nao_informado'];
+const INBOUND_TENTATIVAS = ['dieta', 'jejum', 'nutri', 'nutri_comp', 'psi', 'remedio', 'coach', 'cirurgia', 'nenhum'];
+const INBOUND_SAUDE = ['hipo', 'sop', 'ri', 'diabetes', 'meno', 'ansiedade', 'colesterol', 'nenhuma', 'nao_informado'];
+const INBOUND_PRONTIDAO = ['alta', 'media', 'baixa', 'nao_informado'];
+const INBOUND_TURNOS = ['manha', 'tarde', 'noite'];
+const INBOUND_DIAS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
+const INBOUND_ETAPAS = ['acolhimento', 'qualificando', 'disponibilidade', 'pronta', 'protocolo_raiz', 'encerrada'];
+// Motivos que dispensam disponibilidade: não são handoff de agendamento.
+const INBOUND_MOTIVOS_DIRETOS = ['pediu_evelyn', 'pediu_humano', 'fora_do_roteiro', 'ja_paciente'];
+
+function listaLimpa(valor, permitidos) {
+  if (!Array.isArray(valor)) return [];
+  const norm = v => String(v || '').toLowerCase().trim()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return [...new Set(valor.map(norm).filter(v => permitidos.includes(v)))];
+}
+
+/**
+ * Funde o que já se sabia com o que a IA devolveu agora.
+ *
+ * O prompt pede estado cumulativo, mas a fusão acontece aqui de propósito: se
+ * o modelo esquecer de repetir um campo numa rodada, a informação que a pessoa
+ * já contou não pode evaporar — e com ela o gate de qualificação.
+ */
+export function fundirQualificacaoInbound(anterior = {}, novo = {}) {
+  const ant = anterior || {};
+  const padraoNovo = INBOUND_PADROES.includes(novo.padrao) && novo.padrao !== 'nao_informado'
+    ? novo.padrao : null;
+  const prontidaoNova = INBOUND_PRONTIDAO.includes(novo.prontidao) && novo.prontidao !== 'nao_informado'
+    ? novo.prontidao : null;
+  const dorNova = typeof novo.dor_texto === 'string' ? novo.dor_texto.trim() : '';
+  const dorAnterior = typeof ant.dor_texto === 'string' ? ant.dor_texto.trim() : '';
+
+  const tentativas = [...new Set([
+    ...listaLimpa(ant.tentativas, INBOUND_TENTATIVAS),
+    ...listaLimpa(novo.tentativas, INBOUND_TENTATIVAS),
+  ])];
+  const saude = [...new Set([
+    ...listaLimpa(ant.saude, INBOUND_SAUDE),
+    ...listaLimpa(novo.saude, INBOUND_SAUDE),
+  ])];
+
+  const fundida = {
+    padrao: padraoNovo || ant.padrao || 'nao_informado',
+    tentativas,
+    saude,
+    // Texto maior ganha: a pessoa costuma ir detalhando a dor ao longo da
+    // conversa, e trocar um relato longo por um resumo curto perde o que a
+    // nutricionista mais usa.
+    dor_texto: dorNova.length >= dorAnterior.length ? dorNova : dorAnterior,
+    prontidao: prontidaoNova || ant.prontidao || 'nao_informado',
+  };
+
+  // `completa` é calculada aqui, nunca lida do modelo.
+  fundida.completa = fundida.padrao !== 'nao_informado'
+    && fundida.tentativas.length > 0
+    && fundida.dor_texto.length >= 25;
+
+  return fundida;
+}
+
+export function fundirDisponibilidadeInbound(anterior = {}, novo = {}) {
+  const ant = anterior || {};
+  const turnos = [...new Set([
+    ...listaLimpa(ant.turnos, INBOUND_TURNOS),
+    ...listaLimpa(novo.turnos, INBOUND_TURNOS),
+  ])];
+  const dias = [...new Set([
+    ...listaLimpa(ant.dias, INBOUND_DIAS),
+    ...listaLimpa(novo.dias, INBOUND_DIAS),
+  ])];
+  const textoNovo = typeof novo.texto === 'string' ? novo.texto.trim() : '';
+  return { turnos, dias, texto: textoNovo || (ant.texto || '') };
+}
+
+function pontuarInbound(q) {
+  let s = 0;
+  if (q.dor_texto && q.dor_texto.length >= 25) s += 3;
+  if (q.tentativas.some(t => t !== 'nenhum')) s += 2;
+  if (['escape', 'ciclo', 'culpa', 'autoestima'].includes(q.padrao)) s += 2;
+  if (q.saude.some(c => c !== 'nenhuma' && c !== 'nao_informado')) s += 1;
+  if (q.prontidao === 'alta') s += 2;
+  else if (q.prontidao === 'media') s += 1;
+  return Math.min(10, s);
+}
+
+function contextoInbound({ origem, qualificacao, disponibilidade, nome, mensagensDoAgente }) {
+  const q = qualificacao || {};
+  const d = disponibilidade || {};
+  const falta = [];
+  if (!q.padrao || q.padrao === 'nao_informado') falta.push('padrao');
+  if (!q.tentativas?.length) falta.push('tentativas');
+  if (!q.dor_texto || q.dor_texto.length < 25) falta.push('dor_texto');
+  if (!q.saude?.length) falta.push('saude');
+  if (!q.prontidao || q.prontidao === 'nao_informado') falta.push('prontidao');
+
+  return [
+    'ESTADO DESTA CONVERSA (apurado pelo sistema, não pelo modelo):',
+    `Origem do clique: ${origem || 'direto'}`,
+    nome ? `Nome: ${nome}` : 'Nome: ainda não informado',
+    `Mensagens que você já enviou: ${mensagensDoAgente} (orçamento de qualificação: 5)`,
+    '',
+    'Já apurado:',
+    `  padrao: ${q.padrao || 'nao_informado'}`,
+    `  tentativas: ${q.tentativas?.length ? q.tentativas.join(', ') : 'nada ainda'}`,
+    `  dor_texto: ${q.dor_texto ? `"${q.dor_texto.slice(0, 300)}"` : 'nada ainda'}`,
+    `  saude: ${q.saude?.length ? q.saude.join(', ') : 'nada ainda'}`,
+    `  prontidao: ${q.prontidao || 'nao_informado'}`,
+    `  qualificação completa: ${q.completa ? 'SIM' : 'NÃO'}`,
+    `  disponibilidade: turnos [${(d.turnos || []).join(', ')}] dias [${(d.dias || []).join(', ')}]`,
+    '',
+    falta.length ? `Ainda falta descobrir: ${falta.join(', ')}` : 'Qualificação completa.',
+    q.completa && (!d.turnos?.length || !d.dias?.length)
+      ? 'A qualificação está completa. Se ela demonstrou interesse, peça turnos E dias da semana.'
+      : '',
+    'Devolva o estado CUMULATIVO: tudo o que você já sabe, não só o que apareceu agora.',
+  ].filter(Boolean).join('\n');
+}
+
+/**
+ * Primeira mensagem do inbound. A pessoa acabou de clicar no anúncio e não
+ * compartilhou nada: não existe dor para validar ainda, só uma pergunta aberta.
+ */
+export async function generateInboundFirstContact({ origem = 'direto' } = {}) {
+  const resposta = await client.messages.create({
+    model: config.anthropic.model,
+    max_tokens: 900,
+    system: INBOUND_PROMPT,
+    messages: [{ role: 'user', content: `
+Uma pessoa acabou de chegar pelo link (origem: ${origem}) e enviou a frase de entrada do anúncio. Ela ainda não contou nada sobre si.
+
+Escreva a PRIMEIRA mensagem, seguindo a seção PRIMEIRA MENSAGEM do seu prompt.
+
+Responda no formato JSON definido, com etapa "acolhimento".` }],
+  });
+
+  return normalizarRespostaInbound(anthropicText(resposta), {}, {}, 0);
+}
+
+/**
+ * Conduz a conversa do inbound. `estado` é o que já foi apurado nas rodadas
+ * anteriores; a fusão e os gates acontecem em normalizarRespostaInbound.
+ */
+export async function generateInboundReply({
+  historico = [], mensagem, origem = 'direto', nome = '',
+  qualificacao = {}, disponibilidade = {}, mensagensDoAgente = 0,
+}) {
+  const resposta = await client.messages.create({
+    model: config.anthropic.model,
+    max_tokens: 1400,
+    system: INBOUND_PROMPT,
+    messages: [
+      ...sanitizeConversationHistory(historico),
+      { role: 'user', content: `
+${contextoInbound({ origem, qualificacao, disponibilidade, nome, mensagensDoAgente })}
+
+Mensagem dela agora: "${mensagem}"
+
+Responda no formato JSON definido.` },
+    ],
+  });
+
+  return normalizarRespostaInbound(
+    anthropicText(resposta), qualificacao, disponibilidade, mensagensDoAgente
+  );
+}
+
+/**
+ * Valida, funde e aplica os gates. Exportada para teste direto, sem LLM.
+ *
+ * O gate que importa: handoff de agendamento SÓ passa com turnos E dias. O
+ * prompt pede isso, mas pedir não é garantir — a Karina ligar sem saber a
+ * disponibilidade é exatamente o que esta função impede.
+ */
+export function normalizarRespostaInbound(bruto, qualificacaoAnterior, disponibilidadeAnterior, mensagensDoAgente = 0) {
+  let p;
+  try {
+    p = JSON.parse(String(bruto || '').replace(/```json|```/gi, '').trim());
+    if (!p || typeof p !== 'object' || Array.isArray(p)) throw new Error('formato');
+  } catch {
+    console.error('[inbound] IA não devolveu JSON válido:', String(bruto || '').slice(0, 200));
+    return {
+      ok: false,
+      leadMessage: '',
+      qualificacao: fundirQualificacaoInbound(qualificacaoAnterior, {}),
+      disponibilidade: fundirDisponibilidadeInbound(disponibilidadeAnterior, {}),
+      score: 0, tier: 'cold', etapa: 'qualificando',
+      handoff: true, handoffMotivo: 'erro_tecnico',
+      redflag: false, redflagMotivo: '', sdrBriefing: '', nome: '',
+    };
+  }
+
+  const qualificacao = fundirQualificacaoInbound(qualificacaoAnterior, p.qualificacao || {});
+  const disponibilidade = fundirDisponibilidadeInbound(disponibilidadeAnterior, p.disponibilidade || {});
+  const score = pontuarInbound(qualificacao);
+  const tier = score >= 6 ? 'hot' : score >= 3 ? 'warm' : 'cold';
+  const redflag = p.redflag === true;
+  const leadMessage = typeof p.leadMessage === 'string' ? p.leadMessage.trim() : '';
+
+  const motivoBruto = typeof p.handoffMotivo === 'string' ? p.handoffMotivo.trim() : '';
+  const temDisponibilidade = disponibilidade.turnos.length > 0 && disponibilidade.dias.length > 0;
+  const motivoDireto = INBOUND_MOTIVOS_DIRETOS.includes(motivoBruto);
+
+  // Gate de handoff. Agendamento exige disponibilidade completa; os outros
+  // motivos (pediu a Evelyn, pediu humano, fora do roteiro, já é paciente)
+  // passam direto porque não têm nada a ver com agenda.
+  let handoff = p.handoff === true;
+  let handoffMotivo = motivoBruto;
+  if (handoff && !motivoDireto) {
+    if (temDisponibilidade) {
+      handoffMotivo = 'pronta_para_agendar';
+    } else {
+      console.warn('[inbound] handoff recusado: sem turnos e dias ainda');
+      handoff = false;
+      handoffMotivo = '';
+    }
+  }
+
+  return {
+    ok: true,
+    leadMessage,
+    nome: typeof p.nome === 'string' ? p.nome.trim().split(/\s+/)[0] : '',
+    qualificacao,
+    disponibilidade,
+    score,
+    tier,
+    etapa: INBOUND_ETAPAS.includes(p.etapa) ? p.etapa : 'qualificando',
+    handoff,
+    handoffMotivo,
+    redflag,
+    redflagMotivo: typeof p.redflagMotivo === 'string' ? p.redflagMotivo.trim() : '',
+    sdrBriefing: typeof p.sdrBriefing === 'string' ? p.sdrBriefing.trim() : '',
+    mensagensDoAgente,
+  };
+}

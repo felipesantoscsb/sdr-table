@@ -268,3 +268,57 @@ export function addSdrMessage(role, content) {
   sdrHistory.push({ role, content });
   if (sdrHistory.length > 30) sdrHistory.splice(0, sdrHistory.length - 30);
 }
+
+// ─── Inbound WhatsApp (anúncio / story) ──────────────────────────────────────
+//
+// Conversa que nasce no WhatsApp, sem formulário antes. O estado da
+// qualificação (padrão, tentativas, dor, saúde, prontidão) e a disponibilidade
+// moram aqui, não no prompt: é esse estado que decide se o handoff para a
+// Karina pode acontecer, e decisão com efeito colateral não pode depender de o
+// modelo lembrar de repetir um campo.
+
+export async function setInboundMode(phone, leadData) {
+  if (await isBlocked(phone)) {
+    console.log(`⛔ Inbound ignorado: ${normalizePhone(phone)} está bloqueado`);
+    return false;
+  }
+  const conv = await getConv(phone);
+  conv.isActiveLead = true;
+  conv.handedOff = false;
+  conv.mode = 'inbound';
+  conv.turnCount = 0;
+  conv.leadData = { ...(conv.leadData || {}), ...(leadData || {}) };
+  conv.inbound = {
+    origem: leadData?.origem || 'direto',
+    ctwa: leadData?.ctwa || null,
+    qualificacao: {},
+    disponibilidade: { turnos: [], dias: [], texto: '' },
+    mensagensDoAgente: 0,
+    iniciadoEm: new Date().toISOString(),
+  };
+  await saveConv(phone, conv);
+  await safeSet(PREFIX.lastSeen + normalizePhone(phone), Date.now());
+  return true;
+}
+
+export async function getInboundState(phone) {
+  const conv = await getConv(phone);
+  return conv.inbound || {
+    origem: 'direto', ctwa: null,
+    qualificacao: {}, disponibilidade: { turnos: [], dias: [], texto: '' },
+    mensagensDoAgente: 0,
+  };
+}
+
+export async function setInboundState(phone, patch) {
+  const conv = await getConv(phone);
+  conv.inbound = { ...(conv.inbound || {}), ...(patch || {}) };
+  await saveConv(phone, conv);
+  return conv.inbound;
+}
+
+/** Já existe conversa de inbound para este número? Decide continuar vs. abrir. */
+export async function temConversaInbound(phone) {
+  const conv = await getConv(phone);
+  return conv.mode === 'inbound' && !!conv.inbound;
+}

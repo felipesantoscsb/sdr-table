@@ -8,6 +8,9 @@ import { config } from '../config/index.js';
 import { handleMakeLead } from './webhook/makeHandler.js';
 import { handleQuizLead } from './webhook/quizHandler.js';
 import { handleZapiMessage, processQueue } from './webhook/zapiHandler.js';
+import { handleZapiInbound, processarFilaInbound } from './webhook/zapiInboundHandler.js';
+import { inboundAtivo } from './inbound/handler.js';
+import { inboundConfigStatus } from './zapi/senderInbound.js';
 import { handleQuizPre } from './webhook/quizPreHandler.js';
 import { handleDisparo, fireDossie, DOSSIE_WHATSAPP_ENABLED } from './disparos/handler.js';
 import { gerarDossie } from './disparos/gerador.js';
@@ -18,7 +21,7 @@ import { handleCampanhaRegistro } from './campanha/handler.js';
 import { handleReativacaoRegistro } from './reativacao/handler.js';
 import { handleConfirmacaoPreConsulta } from './confirmacao/handler.js';
 import { handleOferta } from './oferta/handler.js';
-import { getPhonesWithQueue } from './conversation/store.js';
+import { getPhonesWithQueue, getConversationMode } from './conversation/store.js';
 import {
   startFollowUpJob,
   fireFollowUp,
@@ -54,6 +57,9 @@ app.use('/', express.static(join(__dirname, '../public/planos')));
 app.post('/webhook/lead', handleMakeLead);
 app.post('/webhook/quiz', handleQuizLead);
 app.post('/webhook/zapi', handleZapiMessage);
+// Segunda instância Z-API (a da satisfação): inbound de anúncio e story. Rota
+// separada de propósito — o fluxo da Karina não muda em nada.
+app.post('/webhook/zapi-inbound', handleZapiInbound);
 app.post('/webhook/quiz-pre', handleQuizPre);
 app.post('/webhook/disparo', handleDisparo);
 app.post('/webhook/ticto', handleTicto);
@@ -130,9 +136,20 @@ app.get('/d/:slug', async (req, res) => {
   }
 });
 
-// Health check
+// Health check. A configuração da 2ª instância Z-API aparece aqui porque a
+// falha dela é SILENCIOSA: sem as variáveis, sendInboundMessage pula o envio
+// com um warn no log e a lead do anúncio fica sem resposta nenhuma.
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', uptime: Math.floor(process.uptime()) + 's' });
+  const { configured, missing } = inboundConfigStatus();
+  res.json({
+    status: 'ok',
+    uptime: Math.floor(process.uptime()) + 's',
+    inbound: {
+      ativo: inboundAtivo(),
+      zapi_configurado: configured,
+      variaveis_faltando: missing,
+    },
+  });
 });
 
 // ─── Recovery de timers após redeploy ────────────────────────────────────────
@@ -240,7 +257,8 @@ app.listen(config.port, async () => {
 Endpoints:
   POST /webhook/lead     → Recebe leads do Make (formulário)
   POST /webhook/quiz     → Recebe leads do quiz (aquisicao-table)
-  POST /webhook/zapi     → Recebe mensagens da Zapi
+  POST /webhook/zapi     → Recebe mensagens da Zapi (número da Karina)
+  POST /webhook/zapi-inbound → Inbound de anúncio/story (2ª instância Z-API)
   POST /webhook/quiz-pre → Armazena dados do quiz
   POST /webhook/disparo  → Dispara dossiê personalizado
   POST /webhook/ticto    → Webhook de compras da Ticto
@@ -268,7 +286,12 @@ Endpoints:
     if (hora === 8 && minuto === 0) {
       const phones = await getPhonesWithQueue();
       for (const phone of phones) {
-        await processQueue(phone);
+        // A fila é compartilhada entre as duas instâncias, mas a resposta NÃO
+        // pode ser: mensagem do inbound respondida pelo fluxo principal sairia
+        // pelo número da Karina, que é justamente o que a separação evita.
+        const modo = await getConversationMode(phone).catch(() => 'sdr');
+        if (modo === 'inbound') await processarFilaInbound(phone);
+        else await processQueue(phone);
       }
     }
   }, 60 * 1000);

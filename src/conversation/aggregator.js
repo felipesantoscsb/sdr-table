@@ -22,14 +22,20 @@ const pendingMessages = new Map();
  * @param {string} phone - Número do WhatsApp
  * @param {string} message - Texto da mensagem recebida
  * @param {Function} onReady - Callback chamado com (phone, mensagensAgregadas)
+ * @param {string} [key] - Chave de agregação. Padrão: o próprio número.
+ *
+ * A chave existe por causa das DUAS instâncias Z-API: a mesma pessoa pode
+ * falar com o número da Karina e com o número do inbound. Agregando só por
+ * telefone, as mensagens das duas conversas se misturariam numa string e só
+ * um dos callbacks sobreviveria — a resposta sairia na conversa errada.
  */
-export function aggregate(phone, message, onReady) {
-  // Pega ou cria entrada para este número
-  if (!pendingMessages.has(phone)) {
-    pendingMessages.set(phone, { timer: null, messages: [] });
+export function aggregate(phone, message, onReady, key = phone) {
+  // Pega ou cria entrada para esta conversa
+  if (!pendingMessages.has(key)) {
+    pendingMessages.set(key, { timer: null, messages: [] });
   }
 
-  const pending = pendingMessages.get(phone);
+  const pending = pendingMessages.get(key);
 
   // Adiciona mensagem à lista de pendentes
   pending.messages.push(message);
@@ -44,8 +50,8 @@ export function aggregate(phone, message, onReady) {
     // Junta todas as mensagens com quebra de linha
     const combined = pending.messages.join('\n');
 
-    // Limpa o estado deste número
-    pendingMessages.delete(phone);
+    // Limpa o estado desta conversa
+    pendingMessages.delete(key);
 
     // Avisa quem pediu que está pronto para processar
     onReady(phone, combined);
@@ -56,6 +62,6 @@ export function aggregate(phone, message, onReady) {
  * Retorna quantas mensagens estão aguardando para um número.
  * Útil para logs e debugging.
  */
-export function getPendingCount(phone) {
-  return pendingMessages.get(phone)?.messages.length ?? 0;
+export function getPendingCount(phone, key = phone) {
+  return pendingMessages.get(key)?.messages.length ?? 0;
 }

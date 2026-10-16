@@ -365,3 +365,79 @@ export async function notifySDRManualReview(phone, briefing) {
 
   await sendToAll(lines.join('\n'), { skipDelay: true });
 }
+
+// ─── Avisos do inbound (anúncio / story) ─────────────────────────────────────
+//
+// O aviso sai pela instância da KARINA, não pela do inbound. É onde ela já
+// recebe handoff, red flag e erro — misturar canal de notificação com canal de
+// conversa só criaria um segundo lugar para ela ter de olhar.
+
+const INBOUND_ROTULO_MOTIVO = {
+  pronta_para_agendar: '🟢 Qualificada e pronta para agendar',
+  pediu_evelyn:        '👤 Pediu atendimento direto com a Evelyn',
+  pediu_humano:        '🙋 Pediu para falar com uma pessoa',
+  fora_do_roteiro:     '❓ Perguntou algo que o agente não soube responder',
+  ja_paciente:         '⚠️ Diz que já é paciente ou já tem acompanhamento',
+  erro_tecnico:        '🔧 Falha técnica do agente — assumir a conversa',
+};
+
+const INBOUND_ORIGEM_ROTULO = {
+  anuncio: 'Anúncio (click-to-WhatsApp)',
+  story:   'Story',
+  bio:     'Bio / perfil',
+  direto:  'Link direto',
+};
+
+/**
+ * Handoff do inbound. Formato deliberadamente diferente do handoff normal: aqui
+ * a Karina precisa LIGAR DE OUTRO NÚMERO, e a lead já foi avisada disso. O que
+ * ela precisa ver de imediato é a disponibilidade, porque é com ela que a
+ * conversa dela começa.
+ */
+export async function notifyInbound({
+  nome, phone, motivo, score, tier, disponibilidade = {}, briefing, qualificacao = {}, origem, textoDaLead,
+}) {
+  const limpo = String(phone || '').replace(/\D/g, '');
+  const turnos = (disponibilidade.turnos || []).join(', ');
+  const dias = (disponibilidade.dias || []).join(', ');
+  const temAgenda = !!(turnos && dias);
+
+  const lines = [
+    `📲 *INBOUND WHATSAPP — PRECISA DE VOCÊ*`,
+    ``,
+    INBOUND_ROTULO_MOTIVO[motivo] || 'Precisa de atendimento humano',
+    ``,
+    `👤 *${nome || limpo}*`,
+    `📍 ${INBOUND_ORIGEM_ROTULO[origem] || origem || 'origem não identificada'}`,
+    score != null ? `🌡️ ${String(tier || '').toUpperCase()} | Score: ${score}/10` : null,
+    ``,
+    temAgenda
+      ? `🗓️ *Disponibilidade dela:*\n   Turnos: ${turnos}\n   Dias: ${dias}${disponibilidade.texto ? `\n   Nas palavras dela: "${disponibilidade.texto.slice(0, 200)}"` : ''}`
+      : `🗓️ *Disponibilidade:* não chegou a ser mapeada`,
+    ``,
+    qualificacao.dor_texto ? `💬 *O que ela trouxe:*\n"${qualificacao.dor_texto.slice(0, 400)}"` : null,
+    briefing ? `\n📋 *Briefing:*\n${briefing}` : null,
+    textoDaLead ? `\n💬 Última mensagem: "${String(textoDaLead).slice(0, 300)}"` : null,
+    ``,
+    temAgenda
+      ? `➡️ Ela JÁ FOI AVISADA que você chama de outro número, com as opções de horário.`
+      : `➡️ Assuma a conversa pelo número do inbound.`,
+    `🔗 https://wa.me/${limpo}`,
+  ].filter(l => l !== null);
+
+  await sendToAll(lines.join('\n'), { skipDelay: true });
+}
+
+/** Lead nova entrou pelo inbound. Aviso curto: ainda não tem nada para fazer. */
+export async function notifyInboundNova({ phone, origem, ctwa }) {
+  const limpo = String(phone || '').replace(/\D/g, '');
+  const lines = [
+    `📲 *Nova lead no inbound*`,
+    `📍 ${INBOUND_ORIGEM_ROTULO[origem] || origem || '—'}`,
+    ctwa?.sourceId ? `🎯 Anúncio: ${ctwa.sourceId}` : null,
+    `🔗 https://wa.me/${limpo}`,
+    ``,
+    `O agente está qualificando. Você é chamada quando tiver disponibilidade mapeada.`,
+  ].filter(l => l !== null);
+  await sendToAll(lines.join('\n'), { skipDelay: true });
+}

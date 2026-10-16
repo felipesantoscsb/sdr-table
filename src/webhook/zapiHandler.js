@@ -337,7 +337,10 @@ async function processAggregatedMessages(phone, combinedMessage) {
     // verdade; rodar score e branch Evelyn por cima disso seria recomeçar do
     // zero uma conversa que já está adiantada.
     if (mode === 'oferta') {
-      await conduzirOferta({ phone, leadData, history, mensagem: combinedMessage, temImagem });
+      // temImagem vivia no escopo de handleZapiMessage: referenciar aqui era
+      // ReferenceError garantido em toda resposta de texto no modo oferta.
+      // Imagem sem texto já é tratada antes da agregação, no próprio webhook.
+      await conduzirOferta({ phone, leadData, history, mensagem: combinedMessage, temImagem: false });
       return;
     }
 
