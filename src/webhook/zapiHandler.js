@@ -118,7 +118,7 @@ export async function handleZapiMessage(req, res) {
       }
       // /agente e /retomar vivem em inbound/comandos.js: os DOIS webhooks
       // precisam deles, e duplicar o parser garantiria divergencia.
-      const respostaInbound = await tratarComandoInbound(trimmed);
+      const respostaInbound = await tratarComandoInbound(trimmed, avisaKarina);
       if (respostaInbound !== null) {
         await avisaKarina(respostaInbound);
         return;

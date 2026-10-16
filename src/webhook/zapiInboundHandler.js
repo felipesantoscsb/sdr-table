@@ -120,7 +120,8 @@ export async function handleZapiInbound(req, res) {
     // Karina mandando /retomar para ESTE número via o texto dela virar
     // conversa de lead — foi o que aconteceu em 16/10/2026.
     if (texto && ehNumeroDaEquipe(phone)) {
-      const resposta = await tratarComandoInbound(texto.trim());
+      const resposta = await tratarComandoInbound(texto.trim(),
+        (txt) => sendInboundMessage(phone, txt, { skipDelay: true }));
       if (resposta !== null) {
         registrarDecisao('comando_da_equipe');
         await sendInboundMessage(phone, resposta, { skipDelay: true }).catch(err =>

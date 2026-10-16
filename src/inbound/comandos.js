@@ -54,15 +54,21 @@ const MOTIVOS = {
  * Trata /agente e /retomar. Devolve null quando o texto não é um desses —
  * aí quem chamou segue o fluxo normal dele.
  */
-export async function tratarComandoInbound(texto) {
+export async function tratarComandoInbound(texto, responder = null) {
   const t = String(texto || '').trim();
   const lower = t.toLowerCase();
+  // Aviso imediato. Entre o comando e a confirmação passam de 20 a 55s (check
+  // do Hub + geração + delay de digitação), e silêncio nesse intervalo faz
+  // quem comandou achar que falhou e rodar de novo — que mandaria DUAS
+  // aberturas para a mesma lead.
+  const avisar = async (txt) => { if (responder) await responder(txt).catch(() => {}); };
 
   if (lower.startsWith('/retomar')) {
     const { alvo, contexto } = parseAlvo(t.slice(8));
     if (!alvo) {
       return 'Uso: /retomar 5511999999999\nMelhor ainda, com o que ela mandou:\n/retomar 5511999999999 | oi';
     }
+    await avisar(`⏳ Retomando ${alvo}... a mensagem sai em até 1 minuto (delay de digitação). Não rode de novo.`);
     const r = await retomarInbound({ phone: alvo, mensagemDela: contexto });
     return r.ok
       ? `✅ *Retomada enviada para ${alvo}*\n\n💬 "${r.mensagemEnviada}"\n\nA conversa está com o agente. Ele qualifica e te chama quando tiver turno e dias.`
