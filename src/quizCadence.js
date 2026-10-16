@@ -27,22 +27,23 @@ export const QUIZ_CADENCE_VERSION = 'pr_d1_d3_d5_v1';
 // uma variavel de QA esquecida no Railway: com QUIZ_CADENCE_D1_DELAY_MS=60000 os
 // tres disparos sairiam em menos de 3 minutos do quiz, na mesma pessoa. Para
 // testar, mexa aqui numa branch — nao em producao por variavel de ambiente.
-// Dois toques desde 07/10/2026 (antes eram três: d1_pr, d3_pr, d5_pr).
-// Decisão do Felipe para cortar custo de mensageria: o d3_pr sai de cena e o
-// ÚLTIMO toque passa a ser a copy do d5_pr, antecipada para D+3. O índice de
-// cada passo é a chave das pendências já agendadas no Redis, então a ordem
-// aqui não pode ser rearranjada sem pensar em quem está no meio da cadência.
+// UM toque desde 16/10/2026. Histórico: eram três (d1_pr, d3_pr, d5_pr), viraram
+// dois em 07/10 e agora resta só o D+1. Decisão do Felipe, mesma razão de antes:
+// custo de mensageria em quem fez o quiz e não comprou.
+//
+// A VERSÃO NÃO MUDA de propósito. Bumpar QUIZ_CADENCE_VERSION descartaria toda
+// pendência em voo, inclusive o D+1 de quem fez o quiz ontem. Mantendo a versão,
+// quem tem D+1 pendente recebe normalmente, e a pendência de índice 1 cai no
+// ramo `if (!step)` de fireQuizCadenceStep, que apaga a chave e segue — o mesmo
+// caminho que o D+5 usou quando saiu.
+//
+// O índice de cada passo é a chave das pendências no Redis, então a ordem aqui
+// não pode ser rearranjada sem pensar em quem está no meio da cadência.
 export const QUIZ_CADENCE_STEPS = [
   {
     key: 'd1',
     delayMs: 24 * 60 * 60 * 1000,   // D+1
     templateName: 'd1_pr',
-    params: (lead) => [firstName(lead.nome)],
-  },
-  {
-    key: 'd3',
-    delayMs: 3 * 24 * 60 * 60 * 1000,   // D+3
-    templateName: 'd5_pr',              // a copy do antigo D+5, antecipada
     params: (lead) => [firstName(lead.nome)],
   },
 ];
@@ -178,7 +179,7 @@ export async function scheduleQuizCadence(phoneRaw, leadData = {}) {
     );
   }
 
-  console.log(`🧭 [quiz-cadence] D+1/D+3 agendados para ${lead.nome || 'Lead'} (${phone}) — score ${lead.score}`);
+  console.log(`🧭 [quiz-cadence] D+1 agendado para ${lead.nome || 'Lead'} (${phone}) — score ${lead.score}`);
   return cadence;
 }
 
@@ -210,7 +211,7 @@ export function startQuizCadenceJob() {
     console.log('🛑 Cadência pós-quiz oficial desativada');
     return;
   }
-  console.log('⏰ Cadência pós-quiz D+1/D+3 ativada');
+  console.log('⏰ Cadência pós-quiz D+1 ativada');
   setInterval(checkQuizCadence, CHECK_INTERVAL_MS);
 }
 

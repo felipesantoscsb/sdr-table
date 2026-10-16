@@ -74,24 +74,45 @@ function lead(overrides = {}) {
 
 afterEach(() => resetQuizCadenceTestDependencies());
 
-test('agenda D+1, D+3 e D+5 a partir do QuizCompleted e envia os templates aprovados', async () => {
+test('agenda D+1 a partir do QuizCompleted e envia o template aprovado', async () => {
   const h = createHarness();
   const input = lead();
   const cadence = await scheduleQuizCadence(input.phone, input);
 
   assert.equal(cadence.version, QUIZ_CADENCE_VERSION);
-  assert.deepEqual(cadence.steps.map(step => step.templateName), ['d1_pr', 'd5_pr']);
+  assert.deepEqual(cadence.steps.map(step => step.templateName), ['d1_pr']);
   assert.deepEqual(
     cadence.steps.map(step => step.fire_at),
     QUIZ_CADENCE_STEPS.map(step => input.timestamp + step.delayMs)
   );
 
   await fireQuizCadenceStep(input.phone, 0);
+
+  assert.deepEqual(h.sent.map(item => item.templateName), ['d1_pr']);
+  assert.ok(h.sent.every(item => item.params.length === 1 && item.params[0] === 'Maria'));
+  assert.deepEqual(h.registered.map(item => item.templateName), ['d1_pr']);
+});
+
+// O risco real de tirar o D+3 não é o agendamento novo: é quem já estava no
+// meio da cadência quando o passo saiu. A versão não foi bumpada de propósito
+// (bumpar descartaria também o D+1 em voo), então a pendência de índice 1
+// sobrevive ao filtro de versão e precisa morrer no ramo `if (!step)`.
+test('pendência de D+3 já agendada não dispara nada e some', async () => {
+  const h = createHarness();
+  const input = lead();
+  await scheduleQuizCadence(input.phone, input);
+
+  // Simula a pendência que ficou de antes do corte.
+  const chave = `pending_quiz_cadence:${input.phone}:1`;
+  h.values.set(chave, JSON.stringify({
+    version: QUIZ_CADENCE_VERSION, phone: input.phone, stepIndex: 1,
+    fire_at: input.timestamp + 3 * 24 * 60 * 60 * 1000,
+  }));
+
   await fireQuizCadenceStep(input.phone, 1);
 
-  assert.deepEqual(h.sent.map(item => item.templateName), ['d1_pr', 'd5_pr']);
-  assert.ok(h.sent.every(item => item.params.length === 1 && item.params[0] === 'Maria'));
-  assert.deepEqual(h.registered.map(item => item.templateName), ['d1_pr', 'd5_pr']);
+  assert.equal(h.sent.length, 0, 'D+3 não pode mais sair');
+  assert.ok(!h.values.has(chave), 'a chave tem de ser apagada, senão o sweep volta nela a cada minuto');
 });
 
 test('compra antes de D+1 cancela todos os envios', async () => {
@@ -107,7 +128,7 @@ test('compra antes de D+1 cancela todos os envios', async () => {
   assert.equal([...h.values.keys()].filter(key => key.startsWith(`pending_quiz_cadence:${input.phone}:`)).length, 0);
 });
 
-test('compra depois de D+1 interrompe D+3 e D+5', async () => {
+test('compra depois do D+1 não deixa nenhum passo residual disparar', async () => {
   const h = createHarness();
   const input = lead();
   await scheduleQuizCadence(input.phone, input);
@@ -116,18 +137,6 @@ test('compra depois de D+1 interrompe D+3 e D+5', async () => {
 
   await fireQuizCadenceStep(input.phone, 1);
   await fireQuizCadenceStep(input.phone, 2);
-
-  assert.deepEqual(h.sent.map(item => item.templateName), ['d1_pr']);
-});
-
-test('compra depois de D+3 interrompe D+5', async () => {
-  const h = createHarness();
-  const input = lead();
-  await scheduleQuizCadence(input.phone, input);
-  await fireQuizCadenceStep(input.phone, 0);
-  h.values.set(`compra:${input.phone}`, '1');
-
-  await fireQuizCadenceStep(input.phone, 1);
 
   assert.deepEqual(h.sent.map(item => item.templateName), ['d1_pr']);
 });
@@ -197,14 +206,14 @@ test('os prazos são fixos e não voltam a depender de variável de ambiente', (
   assert.doesNotMatch(fonte, /delayMs:\s*Number\(/);
 });
 
-// Dois toques desde 07/10/2026: o d3_pr saiu e a copy do d5_pr foi
-// antecipada para D+3. O teste trava os dois fatos que custam dinheiro se
+// Um toque desde 16/10/2026: três viraram dois em 07/10 e agora só o D+1
+// permanece. O teste trava os fatos que custam dinheiro se
 // mudarem sem querer — quantos disparos e em que dia.
-test('a cadência tem dois toques: D+1 e D+3', () => {
+test('a cadência tem um toque só: D+1', () => {
   const dia = 24 * 60 * 60 * 1000;
-  assert.deepEqual(QUIZ_CADENCE_STEPS.map(s => s.delayMs), [1 * dia, 3 * dia]);
-  assert.deepEqual(QUIZ_CADENCE_STEPS.map(s => s.key), ['d1', 'd3']);
-  assert.deepEqual(QUIZ_CADENCE_STEPS.map(s => s.templateName), ['d1_pr', 'd5_pr']);
+  assert.deepEqual(QUIZ_CADENCE_STEPS.map(s => s.delayMs), [1 * dia]);
+  assert.deepEqual(QUIZ_CADENCE_STEPS.map(s => s.key), ['d1']);
+  assert.deepEqual(QUIZ_CADENCE_STEPS.map(s => s.templateName), ['d1_pr']);
 });
 
 // Quem entrou na cadência antes do corte tem uma pendência de D+5 agendada no
