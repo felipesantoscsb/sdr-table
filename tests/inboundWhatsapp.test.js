@@ -206,6 +206,62 @@ test('valor fora do vocabulário é descartado, não propagado', () => {
   assert.equal(r.qualificacao.prontidao, 'nao_informado');
 });
 
+// 16/10/2026: o primeiro handoff real travou aqui. A lead disse "qualquer dia
+// de seg a sex a noite" — disponibilidade completa — e o agente continuou
+// pedindo dia. Causa: eu documentei no prompt os valores de `turnos` e esqueci
+// os de `dias`, então o modelo escrevia português natural e o whitelist
+// descartava tudo em silêncio.
+test('a lead fala como gente, e isso tem de virar dias válidos', () => {
+  const casos = [
+    ['qualquer dia de seg a sex', ['seg', 'ter', 'qua', 'qui', 'sex']],
+    ['de segunda a sexta',        ['seg', 'ter', 'qua', 'qui', 'sex']],
+    ['seg-sex',                   ['seg', 'ter', 'qua', 'qui', 'sex']],
+    ['segunda',                   ['seg']],
+    ['terça-feira',               ['ter']],
+    ['sabado',                    ['sab']],
+    ['qualquer dia',              ['qualquer']],
+    ['tanto faz',                 ['qualquer']],
+  ];
+  for (const [entrada, esperado] of casos) {
+    const d = fundirDisponibilidadeInbound({}, { dias: [entrada] });
+    assert.deepEqual(d.dias, esperado, `"${entrada}" virou ${JSON.stringify(d.dias)}`);
+  }
+});
+
+test('turnos também aceitam a forma falada', () => {
+  for (const [entrada, esperado] of [['à noite', 'noite'], ['de manhã', 'manha'],
+                                      ['pela tarde', 'tarde'], ['qualquer horário', 'qualquer']]) {
+    const d = fundirDisponibilidadeInbound({}, { turnos: [entrada] });
+    assert.deepEqual(d.turnos, [esperado], `"${entrada}" virou ${JSON.stringify(d.turnos)}`);
+  }
+});
+
+test('intervalo vence o sinônimo solto dentro da mesma frase', () => {
+  // "qualquer dia de seg a sex" contém "qualquer" E uma faixa. A faixa é mais
+  // específica e não pode ser engolida.
+  const d = fundirDisponibilidadeInbound({}, { dias: ['qualquer dia de seg a sex'] });
+  assert.equal(d.dias.length, 5);
+  assert.ok(!d.dias.includes('qualquer'));
+});
+
+test('disponibilidade só em texto livre libera o handoff, não prende a lead', () => {
+  // O gate existe para a Karina não ligar sem saber quando. Se a lead DISSE
+  // quando pode e só a estruturação falhou, segurar é pior que passar com as
+  // palavras dela.
+  const q = { padrao: 'escape', tentativas: ['dieta'], prontidao: 'alta',
+    dor_texto: 'Como escondido a noite e no outro dia me odeio demais' };
+  const r = resp({ leadMessage: 'ok', qualificacao: q, handoff: true,
+    handoffMotivo: 'pronta_para_agendar',
+    disponibilidade: { turnos: [], dias: [], texto: 'consigo nas quartas depois das 18h' } });
+  assert.equal(r.handoff, true);
+  assert.equal(r.disponibilidadeNaoEstruturada, true, 'a Karina precisa saber que veio solto');
+
+  // Sem nada em lugar nenhum, continua barrado.
+  const vazio = resp({ leadMessage: 'ok', qualificacao: q, handoff: true,
+    disponibilidade: { turnos: [], dias: [], texto: '' } });
+  assert.equal(vazio.handoff, false);
+});
+
 test('turno e dia fora do vocabulário não viram agenda', () => {
   const d = fundirDisponibilidadeInbound({}, { turnos: ['madrugada'], dias: ['feriado'] });
   assert.deepEqual(d.turnos, []);

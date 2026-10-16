@@ -738,17 +738,87 @@ const INBOUND_PADROES = ['escape', 'ciclo', 'culpa', 'autoestima', 'rotina', 'sa
 const INBOUND_TENTATIVAS = ['dieta', 'jejum', 'nutri', 'nutri_comp', 'psi', 'remedio', 'coach', 'cirurgia', 'nenhum'];
 const INBOUND_SAUDE = ['hipo', 'sop', 'ri', 'diabetes', 'meno', 'ansiedade', 'colesterol', 'nenhuma', 'nao_informado'];
 const INBOUND_PRONTIDAO = ['alta', 'media', 'baixa', 'nao_informado'];
-const INBOUND_TURNOS = ['manha', 'tarde', 'noite'];
-const INBOUND_DIAS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
+const INBOUND_TURNOS = ['manha', 'tarde', 'noite', 'qualquer'];
+const INBOUND_DIAS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom', 'qualquer'];
+
+// O modelo escreve "segunda" e "terça-feira", não "seg" — é o português natural
+// dele. Em 16/10/2026 o whitelist descartava tudo isso em silêncio, `dias`
+// ficava vazio para sempre e o gate de handoff NUNCA liberava: o agente pedia
+// dia, a lead respondia, e a conversa não chegava na Karina.
+//
+// A lição não é só "documente o enum no prompt" (documentei o de turnos e
+// esqueci o de dias). É que gate com efeito colateral não pode depender de o
+// modelo emitir o token exato. Aqui o código aceita a forma natural.
+const SINONIMOS_DIA = {
+  segunda: 'seg', 'segunda-feira': 'seg', segundafeira: 'seg', '2a': 'seg', seg: 'seg',
+  terca: 'ter', 'terca-feira': 'ter', tercafeira: 'ter', '3a': 'ter', ter: 'ter',
+  quarta: 'qua', 'quarta-feira': 'qua', quartafeira: 'qua', '4a': 'qua', qua: 'qua',
+  quinta: 'qui', 'quinta-feira': 'qui', quintafeira: 'qui', '5a': 'qui', qui: 'qui',
+  sexta: 'sex', 'sexta-feira': 'sex', sextafeira: 'sex', '6a': 'sex', sex: 'sex',
+  sabado: 'sab', sab: 'sab', domingo: 'dom', dom: 'dom',
+  // "tanto faz" é resposta boa: não inventa dia nenhum e destrava o handoff.
+  qualquer: 'qualquer', 'qualquer dia': 'qualquer', 'tanto faz': 'qualquer',
+  todos: 'qualquer', 'todos os dias': 'qualquer', 'qualquer um': 'qualquer',
+  flexivel: 'qualquer', 'semana toda': 'qualquer',
+};
+const SINONIMOS_TURNO = {
+  manha: 'manha', 'de manha': 'manha', 'pela manha': 'manha', cedo: 'manha',
+  tarde: 'tarde', 'a tarde': 'tarde', 'de tarde': 'tarde', 'pela tarde': 'tarde',
+  noite: 'noite', 'a noite': 'noite', 'de noite': 'noite', 'pela noite': 'noite',
+  qualquer: 'qualquer', 'qualquer horario': 'qualquer', 'tanto faz': 'qualquer',
+  todos: 'qualquer', flexivel: 'qualquer', 'qualquer hora': 'qualquer',
+};
 const INBOUND_ETAPAS = ['acolhimento', 'qualificando', 'disponibilidade', 'pronta', 'protocolo_raiz', 'encerrada'];
 // Motivos que dispensam disponibilidade: não são handoff de agendamento.
 const INBOUND_MOTIVOS_DIRETOS = ['pediu_evelyn', 'pediu_humano', 'fora_do_roteiro', 'ja_paciente'];
 
-function listaLimpa(valor, permitidos) {
+const ORDEM_DIAS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
+
+// "de seg a sex", "segunda a sexta", "seg-sex". A lead fala em INTERVALO, e foi
+// exatamente assim que o primeiro handoff real travou em 16/10/2026: ela disse
+// "qualquer dia de seg a sex a noite", o modelo devolveu isso como um item só,
+// o whitelist descartou e o gate nunca liberou.
+function expandirIntervaloDias(texto) {
+  // TODOS os candidatos, não só o primeiro. Em "qualquer dia de seg a sex" o
+  // primeiro trecho com cara de intervalo é "di a de" (dentro de "dia de"),
+  // que não resolve — parar nele descartava a faixa real logo adiante.
+  for (const m of texto.matchAll(/\b([a-z0-9]+)\s*(?:a|ate|as|-)\s*([a-z0-9]+)\b/g)) {
+    const i = ORDEM_DIAS.indexOf(SINONIMOS_DIA[m[1]]);
+    const f = ORDEM_DIAS.indexOf(SINONIMOS_DIA[m[2]]);
+    if (i >= 0 && f >= 0 && f >= i) return ORDEM_DIAS.slice(i, f + 1);
+  }
+  return null;
+}
+
+function listaLimpa(valor, permitidos, sinonimos = null, expandir = null) {
   if (!Array.isArray(valor)) return [];
   const norm = v => String(v || '').toLowerCase().trim()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '');
-  return [...new Set(valor.map(norm).filter(v => permitidos.includes(v)))];
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+
+  const saida = [];
+  for (const bruto of valor) {
+    const v = norm(bruto);
+    if (!v) continue;
+
+    // Intervalo primeiro: "qualquer dia de seg a sex" contém "qualquer", e sem
+    // esta ordem o sinônimo venceria e a faixa real se perderia.
+    const faixa = expandir ? expandir(v) : null;
+    if (faixa) { saida.push(...faixa); continue; }
+
+    if (sinonimos) {
+      if (sinonimos[v]) { saida.push(sinonimos[v]); continue; }
+      // Chave MAIS LONGA que couber, não a primeira da ordem: "segunda" tem
+      // de vencer "seg" quando os dois casam, senão a ordem do objeto decide.
+      const parcial = Object.entries(sinonimos)
+        .filter(([chave]) => chave.length >= 3 && v.includes(chave))
+        .sort((x, y) => y[0].length - x[0].length)[0];
+      if (parcial) { saida.push(parcial[1]); continue; }
+    }
+    saida.push(v);
+  }
+  return [...new Set(saida)].filter(v => permitidos.includes(v));
 }
 
 /**
@@ -798,12 +868,12 @@ export function fundirQualificacaoInbound(anterior = {}, novo = {}) {
 export function fundirDisponibilidadeInbound(anterior = {}, novo = {}) {
   const ant = anterior || {};
   const turnos = [...new Set([
-    ...listaLimpa(ant.turnos, INBOUND_TURNOS),
-    ...listaLimpa(novo.turnos, INBOUND_TURNOS),
+    ...listaLimpa(ant.turnos, INBOUND_TURNOS, SINONIMOS_TURNO),
+    ...listaLimpa(novo.turnos, INBOUND_TURNOS, SINONIMOS_TURNO),
   ])];
   const dias = [...new Set([
-    ...listaLimpa(ant.dias, INBOUND_DIAS),
-    ...listaLimpa(novo.dias, INBOUND_DIAS),
+    ...listaLimpa(ant.dias, INBOUND_DIAS, SINONIMOS_DIA, expandirIntervaloDias),
+    ...listaLimpa(novo.dias, INBOUND_DIAS, SINONIMOS_DIA, expandirIntervaloDias),
   ])];
   const textoNovo = typeof novo.texto === 'string' ? novo.texto.trim() : '';
   return { turnos, dias, texto: textoNovo || (ant.texto || '') };
@@ -934,7 +1004,14 @@ export function normalizarRespostaInbound(bruto, qualificacaoAnterior, disponibi
   const leadMessage = typeof p.leadMessage === 'string' ? p.leadMessage.trim() : '';
 
   const motivoBruto = typeof p.handoffMotivo === 'string' ? p.handoffMotivo.trim() : '';
-  const temDisponibilidade = disponibilidade.turnos.length > 0 && disponibilidade.dias.length > 0;
+  const estruturada = disponibilidade.turnos.length > 0 && disponibilidade.dias.length > 0;
+  // Válvula: a lead disse quando pode, mas a estruturação falhou (enum novo,
+  // jeito de escrever que o mapa não cobre). O gate existe para a Karina não
+  // ligar sem saber quando — e o texto cru responde isso. Segurar a lead aqui
+  // é pior que passar com as palavras dela, que é o que ela realmente disse.
+  const textoDisponibilidade = (disponibilidade.texto || '').trim();
+  const soTexto = !estruturada && qualificacao.completa && textoDisponibilidade.length >= 8;
+  const temDisponibilidade = estruturada || soTexto;
   const motivoDireto = INBOUND_MOTIVOS_DIRETOS.includes(motivoBruto);
 
   // Gate de handoff. Agendamento exige disponibilidade completa; os outros
@@ -945,6 +1022,9 @@ export function normalizarRespostaInbound(bruto, qualificacaoAnterior, disponibi
   if (handoff && !motivoDireto) {
     if (temDisponibilidade) {
       handoffMotivo = 'pronta_para_agendar';
+      if (soTexto) {
+        console.warn(`[inbound] disponibilidade não estruturada, handoff pelo texto: "${textoDisponibilidade.slice(0, 120)}"`);
+      }
     } else {
       console.warn('[inbound] handoff recusado: sem turnos e dias ainda');
       handoff = false;
@@ -966,6 +1046,8 @@ export function normalizarRespostaInbound(bruto, qualificacaoAnterior, disponibi
     redflag,
     redflagMotivo: typeof p.redflagMotivo === 'string' ? p.redflagMotivo.trim() : '',
     sdrBriefing: typeof p.sdrBriefing === 'string' ? p.sdrBriefing.trim() : '',
+    // Avisa o aviso da Karina: a disponibilidade veio só como texto da lead.
+    disponibilidadeNaoEstruturada: handoff && soTexto,
     mensagensDoAgente,
   };
 }

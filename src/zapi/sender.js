@@ -413,7 +413,11 @@ export async function notifyInbound({
     ``,
     temAgenda
       ? `🗓️ *Disponibilidade dela:*\n   Turnos: ${turnos}\n   Dias: ${dias}${disponibilidade.texto ? `\n   Nas palavras dela: "${disponibilidade.texto.slice(0, 200)}"` : ''}`
-      : `🗓️ *Disponibilidade:* não chegou a ser mapeada`,
+      : disponibilidade.texto
+        // Ela disse quando pode, só não coube nos campos. Mostrar as palavras
+        // dela é melhor que dizer "não mapeada" com a resposta na mão.
+        ? `🗓️ *Disponibilidade (nas palavras dela):*\n   "${disponibilidade.texto.slice(0, 300)}"`
+        : `🗓️ *Disponibilidade:* não chegou a ser mapeada`,
     ``,
     qualificacao.dor_texto ? `💬 *O que ela trouxe:*\n"${qualificacao.dor_texto.slice(0, 400)}"` : null,
     briefing ? `\n📋 *Briefing:*\n${briefing}` : null,

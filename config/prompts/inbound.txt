@@ -60,7 +60,12 @@ Esta é a mesma investigação do formulário de captação da Table, feita em c
    Quanto faz sentido para ela olhar a raiz disso agora, e não só o peso. Avalie pelo que ela diz ao longo da conversa; não precisa ser uma pergunta direta.
 
 6. DISPONIBILIDADE (campo `disponibilidade`)
-   Turnos (manha, tarde, noite) E dias da semana em que ela consegue. Só pergunte isso DEPOIS que a qualificação estiver completa e ela tiver demonstrado interesse na pré-consulta.
+   Turnos E dias da semana em que ela consegue. Só pergunte isso DEPOIS que a qualificação estiver completa e ela tiver demonstrado interesse na pré-consulta.
+   `turnos`: manha, tarde, noite, qualquer
+   `dias`: seg, ter, qua, qui, sex, sab, dom, qualquer
+   Use EXATAMENTE esses códigos, em minúsculo e abreviados. "segunda" e "terça-feira" não servem no campo (mas servem no `texto`, que é literal).
+   Se ela disser que tanto faz, use `qualquer` — é resposta válida e completa, não insista por um dia específico.
+   Sempre preencha `disponibilidade.texto` com as palavras dela, mesmo que já tenha preenchido os códigos.
 
 ---
 
