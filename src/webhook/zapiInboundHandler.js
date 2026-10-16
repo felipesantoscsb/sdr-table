@@ -1,23 +1,29 @@
 // Webhook da SEGUNDA instância Z-API (a da satisfação).
 //
 // ATENÇÃO AO DIVISOR DE TRÁFEGO. Uma instância Z-API tem UM webhook de entrada
-// só, e essa instância já é usada por dois fluxos que pedem resposta:
-//   - pesquisa de satisfação ("é só responder por aqui")
-//   - lembrete do formulário do Protocolo Raiz (idem)
+// só, e esta rota passou a ser esse webhook em 16/10/2026. Antes dela, a
+// entrada da instância estava apontada para a LIA (/api/whatsapp/webhook);
+// decisão do Felipe de virar o apontamento para cá.
 //
-// Então chega no mesmo lugar: lead nova de anúncio E paciente respondendo
-// pesquisa. Tratar as duas igual seria o pior resultado possível — paciente
-// virando lead de captação, e agente de vendas respondendo quem só quis
-// agradecer.
+// Três tipos de tráfego chegam aqui, e misturá-los seria o pior resultado
+// possível (paciente virando lead de captação, agente de vendas respondendo
+// quem só quis agradecer):
+//   - lead nova de anúncio ou story            → o agente conduz
+//   - resposta de pesquisa de satisfação       → repassa para o Hub
+//   - resposta do lembrete do formulário do PR → repassa para o Hub
+// Mais o resíduo de quem ainda escrever para a LIA nesse número: sem frase de
+// entrada, cai no repasse e chega a uma pessoa em vez de sumir.
 //
 // A divisão é:
 //   1. tem conversa de inbound viva? → agente conduz
 //   2. é a frase de entrada do anúncio/story? → agente abre conversa
-//   3. qualquer outra coisa → REPASSA para o Hub (/webhook/zapi/ops), que é
-//      onde esse tráfego já era tratado e avisa a Karina
+//   3. qualquer outra coisa → REPASSA para o Hub (/webhook/zapi/ops), a rota
+//      que já existe para "resposta no número operacional" e avisa a Karina
 //
 // O passo 3 não é cosmético: sem ele, apontar esta instância para cá deixaria
-// toda resposta de pesquisa em silêncio.
+// toda resposta de pesquisa em silêncio. O destino é o Hub porque é lá que o
+// atendimento humano desse tráfego já está escrito — não porque ele já
+// recebesse esta instância antes (não recebia: era a LIA).
 
 import axios from 'axios';
 import {
@@ -30,6 +36,9 @@ import { iniciarInbound, conduzirInbound, inboundAtivo } from '../inbound/handle
 
 const HUB_OPS_URL = process.env.ZAPI_INBOUND_FALLBACK_URL
   || 'https://crm.tableclinic.com.br/webhook/zapi/ops';
+// O Hub só confere o segredo se ele estiver configurado lá. Se estiver, o
+// mesmo valor precisa existir aqui, senão o repasse é descartado em silêncio
+// do outro lado e a resposta de pesquisa não chega a ninguém.
 const HUB_OPS_SECRET = process.env.ZAPI_OPS_WEBHOOK_SECRET || '';
 
 // Click-to-WhatsApp sem a frase: aceita abrir conversa só pelo bloco de
