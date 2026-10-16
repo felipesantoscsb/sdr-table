@@ -34,6 +34,8 @@ import { aggregate } from '../conversation/aggregator.js';
 import { detectarEntrada } from '../inbound/entry.js';
 import { iniciarInbound, conduzirInbound, inboundAtivo } from '../inbound/handler.js';
 import { verificarElegibilidadeContatoSdr } from '../hub/client.js';
+import { tratarComandoInbound, ehNumeroDaEquipe } from '../inbound/comandos.js';
+import { sendInboundMessage } from '../zapi/senderInbound.js';
 
 const HUB_OPS_URL = process.env.ZAPI_INBOUND_FALLBACK_URL
   || 'https://crm.tableclinic.com.br/webhook/zapi/ops';
@@ -113,6 +115,23 @@ export async function handleZapiInbound(req, res) {
 
     const texto = body.text?.message || (typeof body.text === 'string' ? body.text : null)
       || body.image?.caption || null;
+
+    // COMANDO DA EQUIPE antes de qualquer tratamento de lead. Sem isto, a
+    // Karina mandando /retomar para ESTE número via o texto dela virar
+    // conversa de lead — foi o que aconteceu em 16/10/2026.
+    if (texto && ehNumeroDaEquipe(phone)) {
+      const resposta = await tratarComandoInbound(texto.trim());
+      if (resposta !== null) {
+        registrarDecisao('comando_da_equipe');
+        await sendInboundMessage(phone, resposta, { skipDelay: true }).catch(err =>
+          console.error(`[zapi-inbound] resposta de comando falhou: ${err.message}`));
+        return;
+      }
+      // Não é comando: número da equipe não é lead. Não responde nada.
+      registrarDecisao('equipe_sem_comando');
+      console.log(`[zapi-inbound] mensagem da equipe (${phone}) sem comando — ignorada`);
+      return;
+    }
 
     // Bloqueio permanente vence tudo, inclusive o repasse: quem pediu para não
     // receber não vira notificação nem lead.

@@ -6,7 +6,7 @@ import { cancelQuizCadence } from '../quizCadence.js';
 import { generateReply, generateHandoffBriefing, generateConsultivo, generateFirstContact } from '../ai/anthropic.js';
 import { conduzirConfirmacao } from '../confirmacao/handler.js';
 import { conduzirOferta } from '../oferta/handler.js';
-import { assumirInbound, retomarInbound } from '../inbound/handler.js';
+import { tratarComandoInbound, ehNumeroDaEquipe } from '../inbound/comandos.js';
 import { sendMessage, notifySDR, notifySDRHandoff, notifySDRRetomada, notifySDRRedflag, notifySDRTurnLimit, notifyError, notifySDRManualReview, getSendErrorDetail } from '../zapi/sender.js';
 import { handlePlanoCommand } from '../planos/handler.js';
 import { getQuizPreData } from './quizPreHandler.js';
@@ -116,69 +116,11 @@ export async function handleZapiMessage(req, res) {
         await avisaKarina(`✅ Lead ${targetPhone} desativada e bloqueada. Use /unstop ${targetPhone} para reverter.`);
         return;
       }
-      // /agente <telefone> [| o que você já escreveu]
-      // O agente assume uma conversa do número do inbound que um humano
-      // começou. Não manda nada agora: a próxima mensagem da lead é que
-      // passa a ser conduzida por ele.
-      if (trimmed.toLowerCase().startsWith('/agente')) {
-        const resto = trimmed.slice(7).trim();
-        const [alvoRaw, ...ctx] = resto.split('|');
-        const alvo = normalizePhone((alvoRaw || '').trim());
-        if (!alvo) {
-          await avisaKarina('Uso: /agente 5511999999999\nOu, para o agente saber o que você já disse:\n/agente 5511999999999 | texto que você mandou');
-          return;
-        }
-        const r = await assumirInbound({ phone: alvo, contexto: ctx.join('|').trim() });
-        if (r.ok) {
-          const d = r.diagnostico || {};
-          const linhas = [
-            `🤝 *Agente assumiu ${alvo}*`,
-            ``,
-            `${d.modoGravado ? '✅' : '❌'} Conversa gravada em modo inbound`,
-            `${d.envioConfigurado ? '✅' : '❌'} Instância de envio configurada${d.envioConfigurado ? '' : ` (falta: ${(d.variaveisFaltando || []).join(', ')})`}`,
-            `${d.contextoNoHistorico ? '✅' : '⚠️'} ${d.contextoNoHistorico ? 'Sua mensagem está no histórico dele' : 'Sem contexto: ele pode repetir sua pergunta'}`,
-            `${d.vinculoNoHub === false ? '✅' : d.vinculoNoHub === true ? 'ℹ️' : '⚠️'} ${d.vinculoNoHub === false ? 'Lead nova, sem vínculo no Hub' : d.vinculoNoHub === true ? 'Já tem vínculo no Hub' : 'Hub não respondeu o vínculo'}`,
-            ``,
-            d.modoGravado && d.envioConfigurado
-              ? `Ele NÃO manda nada agora. Na próxima mensagem dela, responde sem se reapresentar, qualifica e te chama quando tiver turno e dias.`
-              : `⚠️ Algo acima falhou: ele NÃO vai responder. Siga na mão.`,
-          ];
-          await avisaKarina(linhas.join('\n'));
-        } else {
-          const motivo = {
-            desligado:   'o inbound está desligado no código',
-            bloqueado:   'esse número está bloqueado (/unstop para liberar)',
-            ja_paciente: `já tem vínculo no Hub (${r.detalhe || 'paciente ou venda'}) — atenda na mão`,
-          }[r.motivo] || r.motivo;
-          await avisaKarina(`⚠️ Não assumi ${alvo}: ${motivo}.`);
-        }
-        return;
-      }
-      // /retomar <telefone> [| o que ela mandou]
-      // Diferente do /agente: este MANDA a mensagem agora, reconhecendo o
-      // atraso. É para quem escreveu, não foi respondida e ficou quieta —
-      // /agente só prepara e espera, e quem ficou quieta não escreve de novo.
-      if (trimmed.toLowerCase().startsWith('/retomar')) {
-        const resto = trimmed.slice(8).trim();
-        const [alvoRaw, ...ctx] = resto.split('|');
-        const alvo = normalizePhone((alvoRaw || '').trim());
-        if (!alvo) {
-          await avisaKarina('Uso: /retomar 5511999999999\nMelhor ainda, com o que ela mandou:\n/retomar 5511999999999 | oi');
-          return;
-        }
-        await avisaKarina(`⏳ Retomando ${alvo}...`);
-        const r = await retomarInbound({ phone: alvo, mensagemDela: ctx.join('|').trim() });
-        if (r.ok) {
-          await avisaKarina(`✅ *Retomada enviada para ${alvo}*\n\n💬 "${r.mensagemEnviada}"\n\nA conversa está com o agente. Ele qualifica e te chama quando tiver turno e dias.`);
-        } else {
-          const motivo = {
-            desligado:     'o inbound está desligado no código',
-            bloqueado:     'esse número está bloqueado (/unstop para liberar)',
-            ja_paciente:   'já tem vínculo definitivo no Hub — atenda na mão',
-            erro_geracao:  'a IA não gerou a mensagem; tente de novo',
-          }[r.motivo] || r.motivo;
-          await avisaKarina(`⚠️ Não retomei ${alvo}: ${motivo}.`);
-        }
+      // /agente e /retomar vivem em inbound/comandos.js: os DOIS webhooks
+      // precisam deles, e duplicar o parser garantiria divergencia.
+      const respostaInbound = await tratarComandoInbound(trimmed);
+      if (respostaInbound !== null) {
+        await avisaKarina(respostaInbound);
         return;
       }
       if (trimmed.toLowerCase().startsWith('/plano')) {
@@ -240,17 +182,6 @@ export async function handleZapiMessage(req, res) {
   } catch (err) {
     console.error('❌ Erro no handler da Zapi:', err.message);
   }
-}
-
-// Números da equipe: aceitam comando (/stop, /agente, /plano) e caem no modo
-// consultivo. É a MESMA lista que o sender já blinda contra bloqueio e para
-// quem já manda todo handoff, red flag e erro — dar comando a quem já recebe
-// tudo é coerente; manter só o SDR_PHONE era inconsistência, não segurança.
-function ehNumeroDaEquipe(phone) {
-  const alvo = normalizePhone(String(phone || ''));
-  return [config.sdr.phone, process.env.NUMERO_BACKUP]
-    .filter(Boolean)
-    .some(p => normalizePhone(String(p)) === alvo);
 }
 
 function avisaKarina(texto) {

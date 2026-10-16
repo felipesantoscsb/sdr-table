@@ -386,20 +386,43 @@ test('conversa assumida instrui o modelo a não se reapresentar', () => {
   assert.match(h, /assumida: estado\.assumida === true/);
 });
 
-test('comando só da equipe, e a equipe é exatamente SDR_PHONE + NUMERO_BACKUP', () => {
-  const wh = ler('src/webhook/zapiHandler.js');
-  const posGuarda = wh.indexOf('if (ehNumeroDaEquipe(phone))');
-  const posComando = wh.indexOf("startsWith('/agente')");
-  assert.ok(posGuarda > 0, 'guarda da equipe sumiu');
-  assert.ok(posComando > posGuarda, '/agente tem de estar dentro da guarda');
+test('o número do Felipe comanda sem depender de variável de ambiente', () => {
+  // 16/10/2026: estava só em NUMERO_BACKUP, a variável não existia no Railway,
+  // e o /retomar dele virou conversa de lead — com handoff. Env ausente falha
+  // em silêncio; aqui o silêncio custa a mensagem de uma lead real.
+  const c = ler('src/inbound/comandos.js');
+  assert.match(c, /const NUMERO_FELIPE = '5511918253788'/);
+  const fn = c.slice(c.indexOf('export function ehNumeroDaEquipe'), c.indexOf('export function numerosDaEquipe'));
+  assert.match(fn, /NUMERO_FELIPE/);
+  // A MESMA lista blinda contra bloqueio no sender. Divergir significa um
+  // número que comanda mas pode ser silenciado, ou o contrário.
+  const prot = ler('src/zapi/sender.js');
+  assert.match(prot.slice(prot.indexOf('function isProtectedPhone')), /5511918253788/);
+});
 
-  // A lista é a MESMA que o sender já blinda contra bloqueio. Se divergirem,
-  // um número recebe notificação mas não comanda, ou pior, comanda sem receber.
-  const fn = wh.slice(wh.indexOf('function ehNumeroDaEquipe'), wh.indexOf('function avisaKarina'));
-  assert.match(fn, /config\.sdr\.phone, process\.env\.NUMERO_BACKUP/);
-  const sender = ler('src/zapi/sender.js');
-  const prot = sender.slice(sender.indexOf('function isProtectedPhone'));
-  assert.match(prot, /config\.sdr\.phone, process\.env\.NUMERO_BACKUP/);
+test('os dois webhooks aceitam comando da equipe, pelo mesmo parser', () => {
+  // O /retomar foi mandado para o número do inbound e virou mensagem de lead,
+  // porque os comandos só existiam no webhook da Karina.
+  for (const arq of ['src/webhook/zapiHandler.js', 'src/webhook/zapiInboundHandler.js']) {
+    const wh = ler(arq);
+    assert.match(wh, /tratarComandoInbound/, `${arq} não trata comando`);
+    assert.match(wh, /ehNumeroDaEquipe/, `${arq} não checa a equipe`);
+  }
+  // E o parser é um só: duplicar garantiria divergência na primeira mudança.
+  const c = ler('src/inbound/comandos.js');
+  assert.match(c, /lower\.startsWith\('\/retomar'\)/);
+  assert.match(c, /lower\.startsWith\('\/agente'\)/);
+});
+
+test('no inbound, a equipe é checada ANTES de virar lead', () => {
+  const wh = ler('src/webhook/zapiInboundHandler.js');
+  const corpo = wh.slice(wh.indexOf('export async function handleZapiInbound'));
+  const posEquipe = corpo.indexOf('ehNumeroDaEquipe(phone)');
+  assert.ok(posEquipe > 0, 'guarda da equipe ausente no inbound');
+  assert.ok(posEquipe < corpo.indexOf('temConversaInbound'), 'equipe checada depois do estado de lead');
+  assert.ok(posEquipe < corpo.indexOf('detectarEntrada(body'), 'equipe checada depois da detecção de entrada');
+  // Número da equipe que não mandou comando não vira conversa nem recebe nada.
+  assert.match(corpo, /equipe_sem_comando/);
 });
 
 test('número da equipe não pode ser bloqueado por /stop', () => {
@@ -417,8 +440,9 @@ test('a confirmação do /agente prova o estado, não promete', () => {
   assert.match(fn, /const salvo = await getInboundState\(phone\)/);
   assert.match(fn, /temConversaInbound\(phone\)/);
   assert.match(fn, /inboundConfigStatus\(\)/);
-  const wh = ler('src/webhook/zapiHandler.js');
-  assert.match(wh, /ele NÃO vai responder. Siga na mão/);
+  // A confirmação mora no parser compartilhado desde a extração.
+  const c = ler('src/inbound/comandos.js');
+  assert.match(c, /ele NÃO vai responder. Siga na mão/);
 });
 
 test('/retomar manda mensagem agora; /agente só prepara e espera', () => {

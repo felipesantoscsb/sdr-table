@@ -74,7 +74,9 @@ async function sendToAll(message, options = {}) {
 // derrubaria a operação inteira em silêncio.
 function isProtectedPhone(phone) {
   const alvo = normalizePhone(String(phone || ''));
-  return [config.sdr.phone, process.env.NUMERO_BACKUP]
+  // Mesma lista de ehNumeroDaEquipe (inbound/comandos.js). Se divergirem, um
+  // número comanda sem receber aviso, ou recebe e pode ser bloqueado.
+  return [config.sdr.phone, '5511918253788', process.env.NUMERO_BACKUP]
     .filter(Boolean)
     .some(p => normalizePhone(String(p)) === alvo);
 }
