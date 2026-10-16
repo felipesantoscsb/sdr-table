@@ -284,6 +284,25 @@ test('o prompt obriga avisar que a Karina chama de OUTRO número', () => {
   assert.match(p, /número diferente deste/i);
 });
 
+test('o agente não se apresenta como Karina', () => {
+  // A Karina é pessoa real e entra depois, de OUTRO número. Se o agente usar o
+  // nome dela, a lead recebe mensagem da "mesma pessoa" vinda de outro número
+  // e a conversa inteira cheira a golpe no momento do handoff.
+  const p = ler('config/prompts/inbound.txt');
+  assert.match(p, /Você NÃO é a Karina/);
+  assert.match(p, /Apresente-se SEM nome próprio/);
+  assert.ok(!/Aqui é a Karina/.test(p), 'o modelo de abertura ainda usa o nome dela');
+  // O handoff, ao contrário, PRECISA nomear a Karina: a lead tem de saber quem
+  // vai chamar, senão ignora o número desconhecido.
+  assert.match(p, /A Karina, que cuida da nossa agenda/);
+});
+
+test('o agente não afirma ser humano quando perguntado', () => {
+  const p = ler('config/prompts/inbound.txt');
+  assert.match(p, /NUNCA afirme ser uma pessoa/);
+  assert.match(p, /Não invente um nome/);
+});
+
 test('o prompt pede turno E dias antes do handoff', () => {
   const p = ler('config/prompts/inbound.txt');
   assert.match(p, /turnos.*E.*dias|Precisa dos dois/s);
