@@ -930,17 +930,36 @@ function contextoInbound({ origem, qualificacao, disponibilidade, nome, mensagen
  * Primeira mensagem do inbound. A pessoa acabou de clicar no anúncio e não
  * compartilhou nada: não existe dor para validar ainda, só uma pergunta aberta.
  */
-export async function generateInboundFirstContact({ origem = 'direto' } = {}) {
-  const resposta = await client.messages.create({
-    model: config.anthropic.model,
-    max_tokens: 900,
-    system: INBOUND_PROMPT,
-    messages: [{ role: 'user', content: `
+export async function generateInboundFirstContact({ origem = 'direto', retomada = null } = {}) {
+  // Retomada: a pessoa escreveu, ninguém respondeu e agora estamos voltando
+  // tarde. Abrir com "oi, que bom que você veio" aqui seria ignorar o que
+  // aconteceu de fato, e ela sabe que esperou.
+  const instrucao = retomada
+    ? `
+Uma pessoa escreveu para a gente e NÃO FOI RESPONDIDA na hora. Estamos voltando agora, com atraso.
+
+${retomada.mensagemDela ? `O que ela escreveu foi: "${String(retomada.mensagemDela).slice(0, 500)}"` : 'Ela escreveu, mas não temos o texto aqui.'}
+
+Escreva a mensagem de retomada. Regras:
+- Reconheça o atraso em UMA frase curta e sem drama. Não se justifique, não explique motivo, não prometa nada sobre atendimento.
+- Não diga quanto tempo passou: você não sabe.
+- Se o que ela escreveu já traz alguma coisa sobre o momento dela, valide isso. Se foi só um "oi", não invente dor que ela não contou.
+- Termine com UMA pergunta aberta sobre o momento dela.
+- Máximo 4 linhas.
+
+Responda no formato JSON definido, com etapa "acolhimento".`
+    : `
 Uma pessoa acabou de chegar pelo link (origem: ${origem}) e enviou a frase de entrada do anúncio. Ela ainda não contou nada sobre si.
 
 Escreva a PRIMEIRA mensagem, seguindo a seção PRIMEIRA MENSAGEM do seu prompt.
 
-Responda no formato JSON definido, com etapa "acolhimento".` }],
+Responda no formato JSON definido, com etapa "acolhimento".`;
+
+  const resposta = await client.messages.create({
+    model: config.anthropic.model,
+    max_tokens: 900,
+    system: INBOUND_PROMPT,
+    messages: [{ role: 'user', content: instrucao }],
   });
 
   return normalizarRespostaInbound(anthropicText(resposta), {}, {}, 0);

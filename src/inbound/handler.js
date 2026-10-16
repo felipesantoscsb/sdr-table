@@ -102,7 +102,22 @@ function camposParaOHub({ nome, phone, origem, qualificacao = {}, disponibilidad
  * Abre a conversa. Só é chamada quando detectarEntrada casou: resposta de
  * pesquisa de satisfação nunca chega aqui.
  */
-export async function iniciarInbound({ phone, origem = 'direto', ctwa = null, mensagemOriginal = '' }) {
+/**
+ * Retomada: a pessoa escreveu, ninguém respondeu, e agora o agente vai atrás.
+ *
+ * É iniciarInbound com a abertura trocada. Ela escreveu primeiro, então isto
+ * NÃO é abordagem fria — é resposta atrasada, que é o que de fato é. O texto
+ * dela, quando a Karina passa, evita que o agente pergunte o que ela já disse.
+ */
+export async function retomarInbound({ phone, origem = 'direto', mensagemDela = '' }) {
+  return iniciarInbound({
+    phone, origem, ctwa: null,
+    mensagemOriginal: mensagemDela,
+    retomada: { mensagemDela },
+  });
+}
+
+export async function iniciarInbound({ phone, origem = 'direto', ctwa = null, mensagemOriginal = '', retomada = null }) {
   if (!inboundAtivo()) {
     console.log(`[inbound] desligado — entrada de ${phone} ignorada`);
     return { ok: false, motivo: 'desligado' };
@@ -134,7 +149,7 @@ export async function iniciarInbound({ phone, origem = 'direto', ctwa = null, me
   const ok = await setInboundMode(phone, { nome: null, whatsapp: phone, origem, ctwa, source: `inbound_${origem}` });
   if (!ok) return { ok: false, motivo: 'bloqueado' };
 
-  const r = await generateInboundFirstContact({ origem });
+  const r = await generateInboundFirstContact({ origem, retomada });
   if (!r.ok || !r.leadMessage) {
     console.error(`[inbound] primeira mensagem vazia p/ ${phone} — nada enviado`);
     await notifyInbound({
@@ -156,8 +171,8 @@ export async function iniciarInbound({ phone, origem = 'direto', ctwa = null, me
 
   notifyInboundNova({ phone, origem, ctwa }).catch(() => {});
 
-  console.log(`✅ [inbound] conversa aberta com ${phone} (origem ${origem})`);
-  return { ok: true };
+  console.log(`✅ [inbound] conversa ${retomada ? 'RETOMADA' : 'aberta'} com ${phone} (origem ${origem})`);
+  return { ok: true, retomada: !!retomada, mensagemEnviada: r.leadMessage };
 }
 
 /**

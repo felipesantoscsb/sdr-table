@@ -421,6 +421,29 @@ test('a confirmação do /agente prova o estado, não promete', () => {
   assert.match(wh, /ele NÃO vai responder. Siga na mão/);
 });
 
+test('/retomar manda mensagem agora; /agente só prepara e espera', () => {
+  // Quem escreveu, não foi respondida e ficou quieta não escreve de novo:
+  // preparar e esperar não resgata essa lead.
+  const h = ler('src/inbound/handler.js');
+  const retomar = h.slice(h.indexOf('export async function retomarInbound'),
+                          h.indexOf('export async function iniciarInbound'));
+  assert.match(retomar, /iniciarInbound\(/, 'retomar reusa o caminho que envia');
+  const assumir = h.slice(h.indexOf('export async function assumirInbound'),
+                          h.indexOf('export async function conduzirInbound'));
+  assert.ok(!/sendInboundMessage/.test(assumir), 'assumir continua sem enviar');
+});
+
+test('a abertura da retomada reconhece o atraso sem inventar dor nem prazo', () => {
+  const ai = ler('src/ai/anthropic.js');
+  const fn = ai.slice(ai.indexOf('export async function generateInboundFirstContact'),
+                      ai.indexOf('export async function generateInboundReply'));
+  assert.match(fn, /NÃO FOI RESPONDIDA na hora/);
+  assert.match(fn, /Não diga quanto tempo passou: você não sabe/);
+  assert.match(fn, /não invente dor que ela não contou/);
+  // E a retomada tem de ser opcional: o primeiro contato normal não muda.
+  assert.match(fn, /retomada = null/);
+});
+
 test('o que não é conversa do inbound é repassado ao Hub, nunca engolido', () => {
   const wh = ler('src/webhook/zapiInboundHandler.js');
   // Os quatro caminhos de saída que não são o agente precisam repassar.

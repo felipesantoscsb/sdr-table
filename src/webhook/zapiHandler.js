@@ -6,7 +6,7 @@ import { cancelQuizCadence } from '../quizCadence.js';
 import { generateReply, generateHandoffBriefing, generateConsultivo, generateFirstContact } from '../ai/anthropic.js';
 import { conduzirConfirmacao } from '../confirmacao/handler.js';
 import { conduzirOferta } from '../oferta/handler.js';
-import { assumirInbound } from '../inbound/handler.js';
+import { assumirInbound, retomarInbound } from '../inbound/handler.js';
 import { sendMessage, notifySDR, notifySDRHandoff, notifySDRRetomada, notifySDRRedflag, notifySDRTurnLimit, notifyError, notifySDRManualReview, getSendErrorDetail } from '../zapi/sender.js';
 import { handlePlanoCommand } from '../planos/handler.js';
 import { getQuizPreData } from './quizPreHandler.js';
@@ -151,6 +151,33 @@ export async function handleZapiMessage(req, res) {
             ja_paciente: `já tem vínculo no Hub (${r.detalhe || 'paciente ou venda'}) — atenda na mão`,
           }[r.motivo] || r.motivo;
           await avisaKarina(`⚠️ Não assumi ${alvo}: ${motivo}.`);
+        }
+        return;
+      }
+      // /retomar <telefone> [| o que ela mandou]
+      // Diferente do /agente: este MANDA a mensagem agora, reconhecendo o
+      // atraso. É para quem escreveu, não foi respondida e ficou quieta —
+      // /agente só prepara e espera, e quem ficou quieta não escreve de novo.
+      if (trimmed.toLowerCase().startsWith('/retomar')) {
+        const resto = trimmed.slice(8).trim();
+        const [alvoRaw, ...ctx] = resto.split('|');
+        const alvo = normalizePhone((alvoRaw || '').trim());
+        if (!alvo) {
+          await avisaKarina('Uso: /retomar 5511999999999\nMelhor ainda, com o que ela mandou:\n/retomar 5511999999999 | oi');
+          return;
+        }
+        await avisaKarina(`⏳ Retomando ${alvo}...`);
+        const r = await retomarInbound({ phone: alvo, mensagemDela: ctx.join('|').trim() });
+        if (r.ok) {
+          await avisaKarina(`✅ *Retomada enviada para ${alvo}*\n\n💬 "${r.mensagemEnviada}"\n\nA conversa está com o agente. Ele qualifica e te chama quando tiver turno e dias.`);
+        } else {
+          const motivo = {
+            desligado:     'o inbound está desligado no código',
+            bloqueado:     'esse número está bloqueado (/unstop para liberar)',
+            ja_paciente:   'já tem vínculo definitivo no Hub — atenda na mão',
+            erro_geracao:  'a IA não gerou a mensagem; tente de novo',
+          }[r.motivo] || r.motivo;
+          await avisaKarina(`⚠️ Não retomei ${alvo}: ${motivo}.`);
         }
         return;
       }
