@@ -8,7 +8,7 @@ import { config } from '../config/index.js';
 import { handleMakeLead } from './webhook/makeHandler.js';
 import { handleQuizLead } from './webhook/quizHandler.js';
 import { handleZapiMessage, processQueue } from './webhook/zapiHandler.js';
-import { handleZapiInbound, processarFilaInbound } from './webhook/zapiInboundHandler.js';
+import { handleZapiInbound, processarFilaInbound, statusInbound } from './webhook/zapiInboundHandler.js';
 import { inboundAtivo } from './inbound/handler.js';
 import { inboundConfigStatus } from './zapi/senderInbound.js';
 import { handleQuizPre } from './webhook/quizPreHandler.js';
@@ -148,6 +148,12 @@ app.get('/health', (req, res) => {
       ativo: inboundAtivo(),
       zapi_configurado: configured,
       variaveis_faltando: missing,
+      hub_secret: Boolean(process.env.HUB_WEBHOOK_SECRET || process.env.INTERNAL_WEBHOOK_SECRET),
+      // Contadores do divisor de tráfego desde o último deploy. Sem telefone e
+      // sem texto. A falha deste fluxo é muda: o número simplesmente para de
+      // responder, e sem isso não dá para distinguir "não chegou mensagem" de
+      // "chegou e eu decidi errado".
+      ...statusInbound(),
     },
   });
 });

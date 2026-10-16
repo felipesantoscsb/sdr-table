@@ -47,6 +47,23 @@ const HUB_OPS_SECRET = process.env.ZAPI_OPS_WEBHOOK_SECRET || '';
 // desligar aqui evita que resposta de pesquisa vire lead.
 const ACEITA_REFERRAL = process.env.INBOUND_ACEITA_REFERRAL !== 'false';
 
+// Contadores das decisões do divisor de tráfego. Existem porque a falha deste
+// fluxo é MUDA: nada quebra, o número só para de responder, e sem log em mãos
+// não dá para saber se é falta de mensagem ou decisão errada. Sem telefone,
+// sem texto — só o que a decisão foi.
+const decisoes = { total: 0 };
+let ultimaDecisao = null;
+let ultimaEm = null;
+function registrarDecisao(tipo) {
+  decisoes[tipo] = (decisoes[tipo] || 0) + 1;
+  decisoes.total += 1;
+  ultimaDecisao = tipo;
+  ultimaEm = new Date().toISOString();
+}
+export function statusInbound() {
+  return { decisoes, ultimaDecisao, ultimaEm };
+}
+
 function dentroDoHorario() {
   const brasilia = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
   const dia = brasilia.getDay();
@@ -89,6 +106,7 @@ export async function handleZapiInbound(req, res) {
       || String(body.type || '').toLowerCase().includes('reaction')
       || String(body.messageType || '').toLowerCase().includes('reaction');
     if (ehReacao) {
+      registrarDecisao('reacao_ignorada');
       console.log(`[zapi-inbound] reação ignorada de ${phone}`);
       return;
     }
@@ -99,6 +117,7 @@ export async function handleZapiInbound(req, res) {
     // Bloqueio permanente vence tudo, inclusive o repasse: quem pediu para não
     // receber não vira notificação nem lead.
     if (await isBlocked(phone)) {
+      registrarDecisao('bloqueado');
       console.log(`⛔ [zapi-inbound] ignorado de ${phone} (bloqueado)`);
       return;
     }
@@ -110,7 +129,8 @@ export async function handleZapiInbound(req, res) {
       if (await isHandedOff(phone)) {
         // Handoff feito: a Karina assumiu. O agente não fala mais, e o Hub
         // avisa para ela não perder a mensagem.
-        console.log(`[zapi-inbound] ${phone} em handoff — repassando para o Hub`);
+        registrarDecisao('repasse_em_handoff');
+      console.log(`[zapi-inbound] ${phone} em handoff — repassando para o Hub`);
         await repassarParaOHub(body);
         return;
       }
@@ -119,17 +139,20 @@ export async function handleZapiInbound(req, res) {
         // Áudio, figurinha, foto sem legenda. O agente não comenta imagem de
         // corpo, exame ou receita, e não transcreve áudio: quem resolve isso é
         // uma pessoa.
-        console.log(`[zapi-inbound] mídia sem texto de ${phone} — repassando para o Hub`);
+        registrarDecisao('repasse_midia');
+      console.log(`[zapi-inbound] mídia sem texto de ${phone} — repassando para o Hub`);
         await repassarParaOHub(body);
         return;
       }
 
       if (!dentroDoHorario()) {
-        console.log(`⏰ [zapi-inbound] fora do horário — enfileirando ${phone}`);
+        registrarDecisao('enfileirado_fora_horario');
+      console.log(`⏰ [zapi-inbound] fora do horário — enfileirando ${phone}`);
         await enqueueMessage(phone, texto);
         return;
       }
 
+      registrarDecisao('conversa_em_andamento');
       aggregate(phone, texto, processarInbound, `inbound:${phone}`);
       return;
     }
@@ -144,6 +167,7 @@ export async function handleZapiInbound(req, res) {
         await repassarParaOHub(body);
         return;
       }
+      registrarDecisao(`entrada_${entrada.origem}`);
       console.log(`🎯 [zapi-inbound] entrada detectada de ${phone} (origem ${entrada.origem}${entrada.viaReferral ? ', via referral' : ''})`);
       await iniciarInbound({
         phone, origem: entrada.origem, ctwa: entrada.ctwa,
@@ -170,15 +194,24 @@ export async function handleZapiInbound(req, res) {
         source: 'inbound_direto', purpose: 'activation',
       }).catch(() => ({ hubContext: null }));
 
-      if (eleg.hubContext === false) {
-        console.log(`🎯 [zapi-inbound] ${phone} sem vínculo no Hub e sem frase — tratando como lead nova (direto)`);
+      // FAIL-OPEN, igual ao resto do projeto. A versão anterior desta linha
+      // exigia `hubContext === false` para atender, e com isso qualquer falha
+      // do check — Hub não deployado, segredo ausente, timeout — mandava TODO
+      // mundo para o repasse e o número ficava mudo. Foi o que aconteceu em
+      // 16/10/2026, com campanha no ar.
+      //
+      // A regra do projeto inteiro é: só o veto DEFINITIVO do Hub (paciente ou
+      // venda ganha) cala o agente; check indisponível não. O veto continua
+      // valendo dentro de iniciarInbound. O que some aqui é o silêncio.
+      if (eleg.hubContext !== true) {
+        const motivo = eleg.hubContext === false ? 'sem vínculo' : 'check indisponível';
+        registrarDecisao(eleg.hubContext === false ? 'lead_nova_sem_frase' : 'lead_nova_hub_mudo');
+        console.log(`🎯 [zapi-inbound] ${phone} atendido como lead nova (${motivo})`);
         await iniciarInbound({ phone, origem: 'direto', ctwa: null, mensagemOriginal: texto });
         return;
       }
-      // hubContext true (já existe) ou null (Hub mudo) → repassa. O fail-safe
-      // aponta para o humano de propósito: agente falando com paciente que só
-      // respondeu uma pesquisa é pior que um aviso a mais para a Karina.
-      console.log(`[zapi-inbound] ${phone} com vínculo no Hub (${eleg.hubContext === null ? 'check indisponível' : 'conhecido'}) — repassando`);
+      registrarDecisao('repasse_tem_vinculo');
+      console.log(`[zapi-inbound] ${phone} já existe no Hub — repassando`);
     }
 
     console.log(`[zapi-inbound] repassando mensagem de ${phone} para o Hub`);

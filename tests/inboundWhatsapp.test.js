@@ -330,13 +330,33 @@ test('lead nova sem a frase ainda é atendida, usando o vínculo como critério'
   assert.ok(corpo.indexOf('detectarEntrada(body') < corpo.indexOf('hubContext === false'));
 });
 
-test('sem a frase, o fail-safe aponta para o humano', () => {
-  // Hub mudo (null) ou telefone conhecido: repassa. Agente conversando com
-  // paciente que só respondeu uma pesquisa é pior que um aviso a mais.
+test('check do Hub indisponível NÃO cala o agente (fail-open)', () => {
+  // 16/10/2026: a versão anterior exigia hubContext === false para atender.
+  // Qualquer falha do check — Hub não deployado, segredo ausente, timeout —
+  // mandava todo mundo para o repasse e o número ficava mudo, com campanha no
+  // ar. O resto do projeto é fail-open; só o veto DEFINITIVO do Hub cala.
   const wh = ler('src/webhook/zapiInboundHandler.js');
   const corpo = wh.slice(wh.indexOf('export async function handleZapiInbound'));
-  assert.match(corpo, /=== false/, 'só o false explícito pode abrir conversa');
-  assert.ok(!/hubContext !== true/.test(corpo), 'null não pode ser tratado como lead nova');
+  assert.match(corpo, /if \(eleg\.hubContext !== true\)/);
+  assert.ok(!/eleg\.hubContext === false\) \{[\s\S]{0,80}iniciarInbound/.test(corpo),
+    'voltou a exigir false explícito para atender');
+  // O veto de paciente continua valendo, só que lá dentro.
+  const h = ler('src/inbound/handler.js');
+  assert.match(h, /bloqueioDefinitivoSdr\(eligibility\)/);
+});
+
+test('o divisor de tráfego conta as decisões, sem vazar dado da lead', () => {
+  // A falha deste fluxo é muda: nada quebra, o número só para de responder.
+  const wh = ler('src/webhook/zapiInboundHandler.js');
+  assert.match(wh, /export function statusInbound/);
+  // Só as duas funções do contador, não as vizinhas.
+  const fn = wh.slice(wh.indexOf('function registrarDecisao'),
+                      wh.indexOf('}', wh.indexOf('export function statusInbound')) + 1);
+  assert.ok(fn.includes('registrarDecisao') && fn.includes('statusInbound'), 'slice errado');
+  assert.ok(!/phone|texto|body|mensagem/.test(fn), 'contador não pode carregar dado da lead');
+  const idx = ler('src/index.js');
+  assert.match(idx, /\.\.\.statusInbound\(\)/);
+  assert.match(idx, /hub_secret: Boolean/);
 });
 
 test('o cliente do Hub só confia em hub_context booleano', () => {
