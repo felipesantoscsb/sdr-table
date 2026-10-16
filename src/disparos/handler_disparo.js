@@ -124,7 +124,7 @@ export async function handleDisparo(req, res) {
       const filename = `${slug}.html`;
       writeFileSync(join(DOSSIES_DIR, filename), html, 'utf-8');
 
-      const url = `https://jornada.tableclinic.com.br/${filename}`;
+      const url = `https://raiz.evelynliu.com.br/${filename}`;
       const mensagem = `${personalizado.whatsappMessage}\n${url}`;
 
       await sendMessage(phone, mensagem);

@@ -50,7 +50,7 @@ app.use(express.json());
 // Fotos da equipe
 app.use('/fotos', express.static(join(__dirname, '../public/fotos')));
 
-// Propostas e dossiês servidos na raiz (mesmo domínio jornada.tableclinic.com.br)
+// Propostas e dossiês servidos na raiz (mesmo domínio raiz.evelynliu.com.br)
 app.use('/', express.static(join(__dirname, '../public/planos')));
 
 // Webhooks

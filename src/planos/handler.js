@@ -36,7 +36,7 @@ export async function handlePlanoCommand(input) {
     const filepath = join(PLANOS_DIR, filename);
     writeFileSync(filepath, html, 'utf-8');
 
-    const url = `https://jornada.tableclinic.com.br/${filename}`;
+    const url = `https://raiz.evelynliu.com.br/${filename}`;
 
     console.log(`✅ Plano gerado: ${url}`);
 

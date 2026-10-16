@@ -37,7 +37,7 @@ export const config = {
     allowedSources: String(process.env.EVELYN_BRANCH_ALLOWED_SOURCES || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean),
     checkoutUrl: process.env.EVELYN_CHECKOUT_URL || 'https://checkout.infinitepay.io/tableclinic/Fllvy2wB2O',
     price: Number(process.env.EVELYN_PRICE_BRL || 4800),
-    journeyBaseUrl: process.env.EVELYN_JOURNEY_BASE_URL || 'https://jornada.tableclinic.com.br',
+    journeyBaseUrl: process.env.EVELYN_JOURNEY_BASE_URL || 'https://raiz.evelynliu.com.br',
   },
 
   // 90s — aguarda mais mensagens antes de processar
