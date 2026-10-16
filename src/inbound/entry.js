@@ -41,6 +41,7 @@ const ORIGENS = [
   // converte ou só traz visita.
   { origem: 'blog',    marcas: ['vim pelo blog', 'pelo blog', 'vim pelo artigo', 'pelo artigo'] },
   { origem: 'site',    marcas: ['vim pelo site', 'pelo site'] },
+  { origem: 'tiktok',  marcas: ['vim pelo tiktok', 'pelo tiktok', 'vi no tiktok'] },
 ];
 
 /**
@@ -95,4 +96,5 @@ export const FRASES = {
   bio:     'Oi! Vim pela bio e quero saber mais sobre o acompanhamento da Table Clinic',
   site:    'Oi! Vim pelo site e quero saber mais sobre o acompanhamento da Table Clinic',
   blog:    'Oi! Vim pelo blog e quero saber mais sobre o acompanhamento da Table Clinic',
+  tiktok:  'Oi! Vim pelo TikTok e quero saber mais sobre o acompanhamento da Table Clinic',
 };

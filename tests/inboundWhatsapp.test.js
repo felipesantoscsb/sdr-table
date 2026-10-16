@@ -41,7 +41,7 @@ test('cada frase pronta casa com a sua própria origem', () => {
   }
   assert.deepEqual(
     Object.keys(FRASES).sort(),
-    ['anuncio', 'bio', 'blog', 'site', 'story'],
+    ['anuncio', 'bio', 'blog', 'site', 'story', 'tiktok'],
     'origem nova precisa de frase pronta e de link atualizado na superfície'
   );
 });
