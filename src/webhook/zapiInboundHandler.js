@@ -33,7 +33,6 @@ import {
 import { aggregate } from '../conversation/aggregator.js';
 import { detectarEntrada } from '../inbound/entry.js';
 import { iniciarInbound, conduzirInbound, inboundAtivo } from '../inbound/handler.js';
-import { verificarElegibilidadeContatoSdr } from '../hub/client.js';
 import { tratarComandoInbound, ehNumeroDaEquipe } from '../inbound/comandos.js';
 import { sendInboundMessage } from '../zapi/senderInbound.js';
 import { audioDoPayload, transcrever, transcricaoDisponivel, PEDIDO_DE_TEXTO } from '../inbound/transcricao.js';
@@ -228,42 +227,28 @@ export async function handleZapiInbound(req, res) {
       return;
     }
 
-    // ── 3. Sem frase, mas pode ser lead nova mesmo assim ─────────────────────
+    // ── 3. Sem frase: QUALQUER mensagem nova aqui é para o agente ────────────
     //
-    // Em 16/10/2026 a Lorena mandou só "Oi" e não recebeu nada: sem frase, caía
-    // direto no repasse, e lá o Hub manda para o número B2B quem não tem
-    // vínculo — justamente a população que este número existe para atender.
+    // Regra do Felipe, 16/10/2026: toda mensagem nova neste número, de quem não
+    // é cliente, o agente atende. Ou qualifica e converte, ou lê o assunto e
+    // passa para a Karina quando for coisa que não é dele.
     //
-    // O discriminador certo não é a frase, é o VÍNCULO: quem responde pesquisa
-    // de satisfação ou lembrete do formulário do PR sempre já existe no Hub
-    // (é paciente ou lead com card). Telefone sem nenhum vínculo que escreve
-    // para cá é gente nova chegando pelo anúncio, pelo site ou pela bio.
+    // A versão anterior barrava quem tivesse QUALQUER vínculo no Hub, e isso
+    // tinha um furo: lead que fez o quiz há três meses existe em `leads`, não é
+    // cliente nenhum, e era justamente quem a gente quer qualificar.
     //
-    // Sem a frase não dá para saber a origem: entra como 'direto'.
+    // O corte certo é "cliente de fato": paciente ou venda ganha. Esse teste já
+    // mora dentro de iniciarInbound (bloqueioDefinitivoSdr), que avisa a Karina
+    // em vez de responder. Então aqui não há mais gate — chamar é a decisão.
+    //
+    // Quem respondeu pesquisa de satisfação e não é paciente cai no agente: o
+    // prompt manda reconhecer assunto alheio e passar para a Karina, em vez de
+    // começar um pitch por cima de uma resposta de pesquisa.
     if (texto && inboundAtivo()) {
-      const eleg = await verificarElegibilidadeContatoSdr({
-        phone, leadData: { nome: null, whatsapp: phone },
-        source: 'inbound_direto', purpose: 'activation',
-      }).catch(() => ({ hubContext: null }));
-
-      // FAIL-OPEN, igual ao resto do projeto. A versão anterior desta linha
-      // exigia `hubContext === false` para atender, e com isso qualquer falha
-      // do check — Hub não deployado, segredo ausente, timeout — mandava TODO
-      // mundo para o repasse e o número ficava mudo. Foi o que aconteceu em
-      // 16/10/2026, com campanha no ar.
-      //
-      // A regra do projeto inteiro é: só o veto DEFINITIVO do Hub (paciente ou
-      // venda ganha) cala o agente; check indisponível não. O veto continua
-      // valendo dentro de iniciarInbound. O que some aqui é o silêncio.
-      if (eleg.hubContext !== true) {
-        const motivo = eleg.hubContext === false ? 'sem vínculo' : 'check indisponível';
-        registrarDecisao(eleg.hubContext === false ? 'lead_nova_sem_frase' : 'lead_nova_hub_mudo');
-        console.log(`🎯 [zapi-inbound] ${phone} atendido como lead nova (${motivo})`);
-        await iniciarInbound({ phone, origem: 'direto', ctwa: null, mensagemOriginal: texto });
-        return;
-      }
-      registrarDecisao('repasse_tem_vinculo');
-      console.log(`[zapi-inbound] ${phone} já existe no Hub — repassando`);
+      registrarDecisao('lead_nova_sem_frase');
+      console.log(`🎯 [zapi-inbound] mensagem nova de ${phone} — agente assume`);
+      await iniciarInbound({ phone, origem: 'direto', ctwa: null, mensagemOriginal: texto });
+      return;
     }
 
     console.log(`[zapi-inbound] repassando mensagem de ${phone} para o Hub`);

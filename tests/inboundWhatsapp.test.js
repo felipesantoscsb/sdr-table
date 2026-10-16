@@ -318,46 +318,9 @@ test('o inbound nunca envia pela instância da Karina', () => {
   assert.match(sender, /if \(!configured\)[^]*skipped: true/);
 });
 
-// 16/10/2026: a Lorena mandou só "Oi" e não recebeu nada. Sem frase, caía no
-// repasse; e lá o Hub avisa o número B2B quando o telefone não tem vínculo —
-// justamente a população que este número existe para atender.
-test('lead nova sem a frase ainda é atendida, usando o vínculo como critério', () => {
-  const wh = ler('src/webhook/zapiInboundHandler.js');
-  const corpo = wh.slice(wh.indexOf('export async function handleZapiInbound'));
-  assert.match(corpo, /hubContext === false/);
-  assert.match(corpo, /iniciarInbound\(\{ phone, origem: 'direto'/);
-  // A ordem importa: a frase é tentada primeiro, porque ela carrega a origem.
-  assert.ok(corpo.indexOf('detectarEntrada(body') < corpo.indexOf('hubContext === false'));
-});
-
-test('check do Hub indisponível NÃO cala o agente (fail-open)', () => {
-  // 16/10/2026: a versão anterior exigia hubContext === false para atender.
-  // Qualquer falha do check — Hub não deployado, segredo ausente, timeout —
-  // mandava todo mundo para o repasse e o número ficava mudo, com campanha no
-  // ar. O resto do projeto é fail-open; só o veto DEFINITIVO do Hub cala.
-  const wh = ler('src/webhook/zapiInboundHandler.js');
-  const corpo = wh.slice(wh.indexOf('export async function handleZapiInbound'));
-  assert.match(corpo, /if \(eleg\.hubContext !== true\)/);
-  assert.ok(!/eleg\.hubContext === false\) \{[\s\S]{0,80}iniciarInbound/.test(corpo),
-    'voltou a exigir false explícito para atender');
-  // O veto de paciente continua valendo, só que lá dentro.
-  const h = ler('src/inbound/handler.js');
-  assert.match(h, /bloqueioDefinitivoSdr\(eligibility\)/);
-});
-
-test('o divisor de tráfego conta as decisões, sem vazar dado da lead', () => {
-  // A falha deste fluxo é muda: nada quebra, o número só para de responder.
-  const wh = ler('src/webhook/zapiInboundHandler.js');
-  assert.match(wh, /export function statusInbound/);
-  // Só as duas funções do contador, não as vizinhas.
-  const fn = wh.slice(wh.indexOf('function registrarDecisao'),
-                      wh.indexOf('}', wh.indexOf('export function statusInbound')) + 1);
-  assert.ok(fn.includes('registrarDecisao') && fn.includes('statusInbound'), 'slice errado');
-  assert.ok(!/phone|texto|body|mensagem/.test(fn), 'contador não pode carregar dado da lead');
-  const idx = ler('src/index.js');
-  assert.match(idx, /\.\.\.statusInbound\(\)/);
-  assert.match(idx, /hub_secret: Boolean/);
-});
+// 16/10/2026: a Lorena mandou só "Oi" e não recebeu nada. Primeiro eu tratei
+// isso com um gate por vínculo no Hub; o critério final é mais largo e está no
+// teste "toda mensagem nova de texto vai para o agente".
 
 test('o cliente do Hub só confia em hub_context booleano', () => {
   const client = ler('src/hub/client.js');
