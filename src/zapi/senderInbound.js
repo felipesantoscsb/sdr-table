@@ -11,6 +11,7 @@
 
 import axios from 'axios';
 import { isBlocked, normalizePhone } from '../conversation/store.js';
+import { podeEnviar } from '../inbound/guardas.js';
 
 const PREFIX = 'ZAPI_INBOUND';
 
@@ -58,6 +59,23 @@ export async function sendInboundMessage(phone, message, options = {}) {
   if (await isBlocked(phone)) {
     console.log(`⛔ [inbound] Envio cancelado para ${normalizePhone(phone)} (número bloqueado)`);
     return null;
+  }
+
+  // CIRCUIT BREAKER. Aqui, e não nos chamadores, porque este é o único funil
+  // por onde toda mensagem ao lead passa: agente, retomada, pedido de texto.
+  // Guarda em chamador se esquece no próximo caminho novo; aqui não tem como.
+  // `sistema: true` é a saída para resposta de comando da equipe, que não é
+  // conversa com lead e não pode consumir a cota dela.
+  if (!options.sistema) {
+    const permissao = await podeEnviar(phone);
+    if (!permissao.ok) {
+      const err = new Error(`Envio bloqueado pela guarda do inbound: ${permissao.detalhe || permissao.motivo}`);
+      err.code = 'INBOUND_CIRCUIT_BREAKER';
+      err.motivo = permissao.motivo;
+      err.detalhe = permissao.detalhe;
+      err.primeiraVez = permissao.primeiraVez === true;
+      throw err;
+    }
   }
 
   if (!options.skipDelay) {

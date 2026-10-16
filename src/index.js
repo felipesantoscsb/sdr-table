@@ -13,6 +13,7 @@ import { inboundAtivo } from './inbound/handler.js';
 import { inboundConfigStatus } from './zapi/senderInbound.js';
 import { numerosDaEquipe } from './inbound/comandos.js';
 import { transcricaoDisponivel } from './inbound/transcricao.js';
+import { LIMITES } from './inbound/guardas.js';
 import { handleQuizPre } from './webhook/quizPreHandler.js';
 import { handleDisparo, fireDossie, DOSSIE_WHATSAPP_ENABLED } from './disparos/handler.js';
 import { gerarDossie } from './disparos/gerador.js';
@@ -155,6 +156,7 @@ app.get('/health', (req, res) => {
       // qualquer outro vê a própria mensagem virar conversa de lead.
       numeros_da_equipe: numerosDaEquipe().length,
       transcricao_audio: transcricaoDisponivel(),
+      guardas: LIMITES,
       // Contadores do divisor de tráfego desde o último deploy. Sem telefone e
       // sem texto. A falha deste fluxo é muda: o número simplesmente para de
       // responder, e sem isso não dá para distinguir "não chegou mensagem" de

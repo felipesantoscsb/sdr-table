@@ -22,6 +22,7 @@ import {
   temConversaInbound,
 } from '../conversation/store.js';
 import { sendInboundMessage, inboundConfigStatus } from '../zapi/senderInbound.js';
+import { LIMITES } from './guardas.js';
 import { notifyInbound, notifyInboundNova } from '../zapi/sender.js';
 import {
   garantirLeadCaptacaoNoHub, migrarParaPreConsulta,
@@ -32,6 +33,35 @@ import {
 // padrão dos outros flags do projeto, pela mesma razão: quando algo dispara
 // mensagem indevida, a correção precisa ser um deploy, não um painel.
 const INBOUND_HARD_OFF = false;
+
+// Teto de turnos, igual ao do SDR. Não é o circuit breaker: o breaker pega BUG
+// (rajada sem a lead falar), isto pega conversa que não anda — 20 trocas sem
+// chegar a turno e dias é sinal de que uma pessoa resolve melhor.
+const TETO_TURNOS = Number(process.env.INBOUND_TETO_TURNOS || 20);
+
+/**
+ * Envia e trata a guarda. Breaker disparado NÃO é erro silencioso: a Karina
+ * precisa saber que o número parou de responder alguém, senão descobrimos pelo
+ * lead reclamando — que foi como descobrimos tudo hoje.
+ */
+async function enviarComGuarda(phone, texto, dados = {}) {
+  try {
+    await sendInboundMessage(phone, texto);
+    return { enviado: true };
+  } catch (err) {
+    if (err.code !== 'INBOUND_CIRCUIT_BREAKER') throw err;
+    console.error(`🚨 [inbound] envio barrado para ${phone}: ${err.detalhe}`);
+    if (err.primeiraVez) {
+      await notifyInbound({
+        ...dados, phone, motivo: 'erro_tecnico',
+        briefing: `🚨 TRAVA DE SEGURANÇA DISPARADA\n${err.detalhe}\n\n`
+          + `O agente parou de responder este número para não mandar mensagem em rajada. `
+          + `Assuma a conversa na mão e me avise para eu investigar.`,
+      }).catch(() => {});
+    }
+    return { enviado: false, barrado: true };
+  }
+}
 
 export function inboundAtivo() {
   return !INBOUND_HARD_OFF && process.env.INBOUND_SDR_ENABLED !== 'false';
@@ -159,9 +189,10 @@ export async function iniciarInbound({ phone, origem = 'direto', ctwa = null, me
     return { ok: false, motivo: 'erro_geracao' };
   }
 
-  await sendInboundMessage(phone, r.leadMessage);
+  const envio = await enviarComGuarda(phone, r.leadMessage, { origem });
+  if (!envio.enviado) return { ok: false, motivo: 'barrado_pela_guarda' };
   await addMessage(phone, 'assistant', r.leadMessage).catch(() => {});
-  await setInboundState(phone, { mensagensDoAgente: 1 });
+  await setInboundState(phone, { mensagensDoAgente: 1, turnos: 0 });
 
   // Card de captação é bookkeeping: não condiciona a conversa.
   garantirLeadCaptacaoNoHub({
@@ -242,6 +273,24 @@ export async function conduzirInbound({ phone, mensagem, history = [] }) {
   const estado = await getInboundState(phone);
   const leadData = (await getLeadData(phone)) || {};
 
+  // Teto de turnos. Conversa que passa disso sem chegar a turno e dias não vai
+  // chegar: a pessoa resolve melhor, e insistir queima a paciência da lead.
+  const turnos = (estado.turnos || 0) + 1;
+  await setInboundState(phone, { turnos });
+  if (turnos > TETO_TURNOS) {
+    await setHandedOff(phone);
+    await notifyInbound({
+      nome: leadData.nome, phone, origem: estado.origem, motivo: 'pediu_humano',
+      score: estado.score, tier: estado.tier,
+      qualificacao: estado.qualificacao, disponibilidade: estado.disponibilidade,
+      textoDaLead: mensagem,
+      briefing: `Teto de ${TETO_TURNOS} turnos atingido sem fechar disponibilidade. `
+        + `A conversa não estava andando; assuma você.`,
+    }).catch(() => {});
+    console.log(`🛑 [inbound] teto de turnos em ${phone}`);
+    return { ok: false, motivo: 'teto_turnos' };
+  }
+
   const r = await generateInboundReply({
     historico: history,
     mensagem,
@@ -304,7 +353,11 @@ export async function conduzirInbound({ phone, mensagem, history = [] }) {
   }
 
   if (r.leadMessage) {
-    await sendInboundMessage(phone, r.leadMessage);
+    const envio = await enviarComGuarda(phone, r.leadMessage, {
+      nome, origem: estado.origem, qualificacao: r.qualificacao,
+      disponibilidade: r.disponibilidade, score: r.score, tier: r.tier,
+    });
+    if (!envio.enviado) return { ...r, barradoPelaGuarda: true };
     await addMessage(phone, 'assistant', r.leadMessage).catch(() => {});
   }
 

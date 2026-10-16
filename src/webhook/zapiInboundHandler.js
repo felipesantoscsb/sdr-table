@@ -36,6 +36,8 @@ import { iniciarInbound, conduzirInbound, inboundAtivo } from '../inbound/handle
 import { tratarComandoInbound, ehNumeroDaEquipe } from '../inbound/comandos.js';
 import { sendInboundMessage } from '../zapi/senderInbound.js';
 import { audioDoPayload, transcrever, transcricaoDisponivel, PEDIDO_DE_TEXTO } from '../inbound/transcricao.js';
+import { jaProcessada, registrarEntrada, travarAbertura, destravarAbertura } from '../inbound/guardas.js';
+import { notifyInbound } from '../zapi/sender.js';
 
 const HUB_OPS_URL = process.env.ZAPI_INBOUND_FALLBACK_URL
   || 'https://crm.tableclinic.com.br/webhook/zapi/ops';
@@ -123,6 +125,15 @@ export async function handleZapiInbound(req, res) {
     // A transcrição acontece ANTES de qualquer decisão de rota, porque é ela
     // que transforma "mídia sem texto" em mensagem de verdade. Nunca lança:
     // falhou, a lead recebe um pedido para escrever.
+    // DEDUP. A Z-API reentrega webhook, e reentrega sem dedup é exatamente a
+    // forma "a lead recebeu a mesma mensagem três vezes". Vem antes de
+    // qualquer trabalho caro: transcrição e LLM custam dinheiro por repetição.
+    if (await jaProcessada(body)) {
+      registrarDecisao('duplicada_ignorada');
+      console.log(`[zapi-inbound] mensagem repetida de ${phone} ignorada`);
+      return;
+    }
+
     const audio = !texto ? audioDoPayload(body) : null;
     if (audio) {
       if (!transcricaoDisponivel()) {
@@ -155,7 +166,7 @@ export async function handleZapiInbound(req, res) {
         (txt) => sendInboundMessage(phone, txt, { skipDelay: true }));
       if (resposta !== null) {
         registrarDecisao('comando_da_equipe');
-        await sendInboundMessage(phone, resposta, { skipDelay: true }).catch(err =>
+        await sendInboundMessage(phone, resposta, { skipDelay: true, sistema: true }).catch(err =>
           console.error(`[zapi-inbound] resposta de comando falhou: ${err.message}`));
         return;
       }
@@ -172,6 +183,10 @@ export async function handleZapiInbound(req, res) {
       console.log(`⛔ [zapi-inbound] ignorado de ${phone} (bloqueado)`);
       return;
     }
+
+    // Denominador do breaker: ela falou. Conversa rápida legítima tem tantas
+    // entradas quanto saídas; loop tem saída sem entrada nenhuma.
+    await registrarEntrada(phone);
 
     const jaTemConversa = await temConversaInbound(phone);
 
@@ -245,9 +260,20 @@ export async function handleZapiInbound(req, res) {
     // prompt manda reconhecer assunto alheio e passar para a Karina, em vez de
     // começar um pitch por cima de uma resposta de pesquisa.
     if (texto && inboundAtivo()) {
+      // Duas mensagens simultâneas de um número novo abririam duas conversas
+      // e mandariam duas saudações.
+      if (!await travarAbertura(phone)) {
+        registrarDecisao('abertura_concorrente');
+        console.log(`[zapi-inbound] abertura de ${phone} já em curso — ignorando a segunda`);
+        return;
+      }
       registrarDecisao('lead_nova_sem_frase');
       console.log(`🎯 [zapi-inbound] mensagem nova de ${phone} — agente assume`);
-      await iniciarInbound({ phone, origem: 'direto', ctwa: null, mensagemOriginal: texto });
+      try {
+        await iniciarInbound({ phone, origem: 'direto', ctwa: null, mensagemOriginal: texto });
+      } finally {
+        await destravarAbertura(phone);
+      }
       return;
     }
 
