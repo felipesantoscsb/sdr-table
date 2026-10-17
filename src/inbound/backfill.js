@@ -21,15 +21,26 @@ import { registrarEtapa } from './funil.js';
 
 export async function backfillInbound({ dryRun = false } = {}) {
   const chaves = await safeKeys('conv:*');
-  const resumo = { conversas: 0, etapas: 0, falhas: 0, porOrigem: {}, dryRun };
+  // "0 conversas" sozinho é ambíguo: não distingue Redis mudo de ausência de
+  // conversa de inbound, e foi exatamente a dúvida que o botão deixou em
+  // 17/10/2026. Estes três números separam os casos.
+  const resumo = {
+    conversas: 0, etapas: 0, falhas: 0, porOrigem: {}, dryRun,
+    chaves_conv: chaves.length,   // 0 aqui = Redis vazio ou inalcançável
+    outro_modo: 0,                // conversas que existem, mas não são inbound
+    ilegiveis: 0,
+  };
+  if (!chaves.length) {
+    console.warn('[backfill-inbound] nenhuma chave conv:* — Redis vazio ou indisponível');
+  }
 
   for (const chave of chaves) {
     const raw = await safeGet(chave);
     if (!raw) continue;
 
     let conv;
-    try { conv = JSON.parse(raw); } catch { continue; }
-    if (conv.mode !== 'inbound' || !conv.inbound) continue;
+    try { conv = JSON.parse(raw); } catch { resumo.ilegiveis++; continue; }
+    if (conv.mode !== 'inbound' || !conv.inbound) { resumo.outro_modo++; continue; }
 
     const phone = chave.slice('conv:'.length);
     const inb = conv.inbound;
@@ -79,8 +90,10 @@ export async function backfillInbound({ dryRun = false } = {}) {
     }
   }
 
-  console.log(`[backfill-inbound] ${resumo.conversas} conversa(s), ${resumo.etapas} etapa(s)`
-    + `${resumo.falhas ? `, ${resumo.falhas} falha(s)` : ''}${dryRun ? ' (simulação)' : ''}`);
+  console.log(`[backfill-inbound] ${resumo.chaves_conv} chave(s) conv:*, `
+    + `${resumo.conversas} de inbound, ${resumo.outro_modo} de outros modos, `
+    + `${resumo.etapas} etapa(s)${resumo.falhas ? `, ${resumo.falhas} falha(s)` : ''}`
+    + `${dryRun ? ' (simulação)' : ''}`);
   return resumo;
 }
 
