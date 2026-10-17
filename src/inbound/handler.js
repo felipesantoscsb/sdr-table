@@ -23,6 +23,7 @@ import {
 } from '../conversation/store.js';
 import { sendInboundMessage, inboundConfigStatus } from '../zapi/senderInbound.js';
 import { LIMITES } from './guardas.js';
+import { registrar as registrarEtapa } from './funil.js';
 import { notifyInbound, notifyInboundNova } from '../zapi/sender.js';
 import {
   garantirLeadCaptacaoNoHub, migrarParaPreConsulta,
@@ -207,6 +208,7 @@ export async function iniciarInbound({ phone, origem = 'direto', ctwa = null, me
   }).catch(err => console.warn(`[inbound] card não criado no Hub para ${phone}: ${err.message}`));
 
   notifyInboundNova({ phone, origem, ctwa }).catch(() => {});
+  registrarEtapa({ phone, tipo: 'conversa_iniciada', source: `inbound_${origem}` });
 
   console.log(`✅ [inbound] conversa ${retomada ? 'RETOMADA' : 'aberta'} com ${phone} (origem ${origem})`);
   return { ok: true, retomada: !!retomada, mensagemEnviada: r.leadMessage };
@@ -293,6 +295,10 @@ export async function conduzirInbound({ phone, mensagem, history = [] }) {
       briefing: `Teto de ${TETO_TURNOS} turnos atingido sem fechar disponibilidade. `
         + `A conversa não estava andando; assuma você.`,
     }).catch(() => {});
+    registrarEtapa({
+      phone, tipo: 'desqualificada', source: `inbound_${estado.origem}`,
+      nome: leadData.nome, motivo: 'teto_de_turnos',
+    });
     console.log(`🛑 [inbound] teto de turnos em ${phone}`);
     return { ok: false, motivo: 'teto_turnos' };
   }
@@ -320,6 +326,20 @@ export async function conduzirInbound({ phone, mensagem, history = [] }) {
   });
   if (r.nome && !leadData.nome) {
     await setInboundState(phone, { nome: r.nome });
+  }
+
+  // Primeira resposta: a lead falou pela primeira vez depois da abertura. É o
+  // que separa "clicou no anúncio" de "entrou em conversa".
+  if (turnos === 1) {
+    registrarEtapa({ phone, tipo: 'primeira_resposta', source: `inbound_${estado.origem}` });
+  }
+  // Qualificada: gatilho de CÓDIGO (qualificacao.completa), não opinião do
+  // modelo — é o mesmo campo que libera o handoff.
+  if (r.qualificacao?.completa && !estado.qualificacao?.completa) {
+    registrarEtapa({
+      phone, tipo: 'qualificada', source: `inbound_${estado.origem}`,
+      nome: r.nome || leadData.nome || null, score: r.score,
+    });
   }
 
   const nome = r.nome || leadData.nome || estado.nome || null;
@@ -392,6 +412,10 @@ export async function conduzirInbound({ phone, mensagem, history = [] }) {
       }).catch(err => console.error('[inbound] erro ao migrar card:', err.message));
     }
 
+    registrarEtapa({
+      phone, tipo: 'handoff', source: `inbound_${estado.origem}`,
+      nome, score: r.score, motivo: r.handoffMotivo,
+    });
     console.log(`🟢 [inbound] handoff ${r.handoffMotivo} para ${phone}`);
     return r;
   }
@@ -400,6 +424,10 @@ export async function conduzirInbound({ phone, mensagem, history = [] }) {
   // esperando resposta que não vem.
   if (r.etapa === 'encerrada') {
     await deactivateLead(phone).catch(() => {});
+    registrarEtapa({
+      phone, tipo: 'desqualificada', source: `inbound_${estado.origem}`,
+      nome, motivo: r.qualificacao?.completa ? 'encerrou_qualificada' : 'encerrou_sem_qualificar',
+    });
     console.log(`[inbound] ${phone} encerrou a conversa`);
   }
 
