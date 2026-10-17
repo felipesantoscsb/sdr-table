@@ -62,10 +62,19 @@ function requireNonEmptyMessage(message) {
   return message.trim();
 }
 
+// Numero do Felipe FIXO, pelo mesmo motivo de ehNumeroDaEquipe: NUMERO_BACKUP
+// nao esta no Railway e variavel ausente falha em silencio — handoff ia so
+// para a Karina sem ninguem perceber. Mesma lista das outras duas funcoes.
+const NUMERO_FELIPE = '5511918253788';
+
 async function sendToAll(message, options = {}) {
-  await sendMessage(config.sdr.phone, message, options);
-  if (process.env.NUMERO_BACKUP) {
-    await sendMessage(process.env.NUMERO_BACKUP, message, options);
+  const destinos = [...new Set(
+    [config.sdr.phone, NUMERO_FELIPE, process.env.NUMERO_BACKUP]
+      .filter(Boolean)
+      .map(p => normalizePhone(String(p)))
+  )];
+  for (const destino of destinos) {
+    await sendMessage(destino, message, options);
   }
 }
 

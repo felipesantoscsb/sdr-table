@@ -349,6 +349,16 @@ test('conversa assumida instrui o modelo a não se reapresentar', () => {
   assert.match(h, /assumida: estado\.assumida === true/);
 });
 
+test('todo aviso vai para a Karina E para o Felipe', () => {
+  // sendToAll dependia só de NUMERO_BACKUP, que não está no Railway — handoff
+  // chegava só na Karina e ninguém percebia, porque falta de env não avisa.
+  const s = ler('src/zapi/sender.js');
+  const fn = s.slice(s.indexOf('async function sendToAll'), s.indexOf('function isProtectedPhone'));
+  assert.match(fn, /NUMERO_FELIPE/);
+  assert.match(fn, /config\.sdr\.phone/);
+  assert.match(fn, /new Set\(/, 'sem dedupe, um número configurado duas vezes receberia em dobro');
+});
+
 test('o número do Felipe comanda sem depender de variável de ambiente', () => {
   // 16/10/2026: estava só em NUMERO_BACKUP, a variável não existia no Railway,
   // e o /retomar dele virou conversa de lead — com handoff. Env ausente falha
