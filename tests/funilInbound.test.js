@@ -92,6 +92,19 @@ test('o backfill é seguro de rodar duas vezes e tem modo de simulação', () =>
   assert.match(b, /status\(401\)/);
 });
 
+test('o backfill infere handoff DE AGENDAMENTO, não marca tudo igual', () => {
+  // Só 'pronta_para_agendar' conta no passo da Karina. Marcar todo handoff
+  // igual inflaria o denominador dela com quem pediu a Evelyn ou perguntou
+  // algo fora do roteiro.
+  const b = ler('src/inbound/backfill.js');
+  assert.match(b, /pronta_para_agendar/);
+  assert.match(b, /backfill_outro_motivo/);
+  // A inferência usa o mesmo sinal que o gate exige: turnos e dias, ou o
+  // texto da disponibilidade no caminho da válvula.
+  assert.match(b, /d\.turnos\?\.length && d\.dias\?\.length/);
+  assert.match(b, /d\.texto/);
+});
+
 test('o backfill admite o próprio limite por escrito', () => {
   // Reconstruir do estado final dá volume, não ritmo: dá para saber que a lead
   // qualificou, não quando.

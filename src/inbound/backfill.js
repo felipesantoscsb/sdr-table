@@ -51,7 +51,19 @@ export async function backfillInbound({ dryRun = false } = {}) {
       etapas.push({ tipo: 'qualificada', occurredAt: quando, score: inb.score ?? null });
     }
     if (conv.handedOff) {
-      etapas.push({ tipo: 'handoff', occurredAt: quando, motivo: 'backfill' });
+      // O motivo do handoff não foi guardado no Redis, mas dá para inferir o
+      // que importa: o gate só libera handoff de AGENDAMENTO com turnos e dias
+      // (ou, no caminho da válvula, com o texto da disponibilidade). Se isso
+      // está preenchido, foi handoff para agendar; senão foi outro motivo
+      // (pediu a Evelyn, fora do roteiro, já paciente) e não pode entrar na
+      // conta do passo da Karina.
+      const d = inb.disponibilidade || {};
+      const temAgenda = (d.turnos?.length && d.dias?.length)
+        || (inb.qualificacao?.completa && (d.texto || '').trim().length >= 8);
+      etapas.push({
+        tipo: 'handoff', occurredAt: quando,
+        motivo: temAgenda ? 'pronta_para_agendar' : 'backfill_outro_motivo',
+      });
     }
     if (inb.etapa === 'encerrada') {
       etapas.push({
