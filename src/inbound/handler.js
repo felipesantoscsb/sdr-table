@@ -113,8 +113,14 @@ function camposParaOHub({ nome, phone, origem, qualificacao = {}, disponibilidad
     nome: nome || 'Lead inbound',
     whatsapp: phone,
     whats: phone,
+    // DOIS campos, de propósito.
+    // `origin` é o que a equipe vê e edita no card: usa a opção que já existe
+    // no select da pipeline, senão alguém troca para um rótulo bonito e leva o
+    // dado junto.
+    // `source` é de máquina, só integração escreve, ninguém edita na tela. É
+    // dele que sai o relatório de custo por origem.
     source: `inbound_${origem || 'direto'}`,
-    origin: 'WhatsApp Inbound',
+    origin: 'WhatsApp direto',
     temperatura: tier,
     tier,
     score,

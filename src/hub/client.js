@@ -46,6 +46,10 @@ export async function migrarParaPreConsulta({ leadData = {}, phone, turno, brief
     saude:            leadData.saude,
     comprometimento:  leadData.comprometimento,
     source:           leadData.source || 'captacao_sdr',
+    // origin e source sao coisas diferentes no Hub: origin a equipe edita no
+    // card, source so integracao escreve. Sem mandar origin aqui, o card da
+    // pre-consulta nascia como 'Captacao' mesmo vindo do inbound.
+    origin:           leadData.origin || null,
     turno:            turno || null,
     briefing:         briefing || null,
     created_at:       new Date().toISOString(),
