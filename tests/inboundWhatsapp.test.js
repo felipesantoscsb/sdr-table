@@ -469,7 +469,8 @@ test('o agente não se apresenta como Karina', () => {
   // e a conversa inteira cheira a golpe no momento do handoff.
   const p = ler('config/prompts/inbound.txt');
   assert.match(p, /Você NÃO é a Karina/);
-  assert.match(p, /Apresente-se SEM nome próprio/);
+  assert.match(p, /Sem nome próprio, nunca\./);
+  assert.match(p, /Aqui é da equipe da Evelyn Liu/, 'a abertura se apresenta como equipe');
   assert.ok(!/Aqui é a Karina/.test(p), 'o modelo de abertura ainda usa o nome dela');
   // O handoff, ao contrário, PRECISA nomear a Karina: a lead tem de saber quem
   // vai chamar, senão ignora o número desconhecido.

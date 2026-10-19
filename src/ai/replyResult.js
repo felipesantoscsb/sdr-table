@@ -13,6 +13,36 @@ export function anthropicText(response) {
     .trim();
 }
 
+/**
+ * Tira da mensagem da lead as marcas que denunciam texto gerado: travessao,
+ * hifen usado como pontuacao e marcador de lista.
+ *
+ * A regra existe no prompt do inbound E em anthropic.js desde sempre, e
+ * mesmo assim travessao continuou chegando na lead. Instrucao negativa nao
+ * segura formatacao: o modelo escreve travessao porque e natural escrever
+ * travessao. Aqui e deterministico.
+ *
+ * Hifen DENTRO da palavra fica intacto: pre-consulta, segunda-feira,
+ * bem-estar. So sai o que esta cercado de espaco, que e uso de pontuacao.
+ */
+export function humanizarPontuacao(texto) {
+  if (typeof texto !== 'string' || !texto) return texto;
+
+  return texto
+    // Marcador de lista no inicio da linha. Lista no WhatsApp parece formulario.
+    .replace(/^[ \t]*[-–—•*]+[ \t]+/gm, '')
+    // Travessao ou hifen como pontuacao, cercado de espaco.
+    .replace(/[ \t]*[—–][ \t]*/g, ', ')
+    .replace(/[ \t]+-[ \t]+/g, ', ')
+    // Sobras: virgula encostando em outra pontuacao, ou no fim da frase.
+    .replace(/,\s*([,.;:!?])/g, '$1')
+    .replace(/[ \t]+([,.;:!?])/g, '$1')
+    .replace(/,(\s*\n)/g, '.$1')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/,\s*$/g, '')
+    .trim();
+}
+
 export function parseGeneratedReply(raw) {
   if (typeof raw !== 'string' || !raw.trim()) {
     throw new InvalidGeneratedReplyError('A IA retornou conteúdo vazio');
@@ -31,7 +61,7 @@ export function parseGeneratedReply(raw) {
 
   const redflag = parsed.redflag === true;
   const leadMessage = typeof parsed.leadMessage === 'string'
-    ? parsed.leadMessage.trim()
+    ? humanizarPontuacao(parsed.leadMessage)
     : '';
 
   // Em red flag não há mensagem para a lead: o fluxo para e chama a SDR.
