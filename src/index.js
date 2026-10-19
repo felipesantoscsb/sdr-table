@@ -12,6 +12,7 @@ import { handleZapiInbound, processarFilaInbound, statusInbound } from './webhoo
 import { inboundAtivo } from './inbound/handler.js';
 import { inboundConfigStatus } from './zapi/senderInbound.js';
 import { handleBackfill } from './inbound/backfill.js';
+import { handleDiagnostico } from './inbound/diagnostico.js';
 import { numerosDaEquipe } from './inbound/comandos.js';
 import { transcricaoDisponivel } from './inbound/transcricao.js';
 import { LIMITES } from './inbound/guardas.js';
@@ -67,6 +68,7 @@ app.post('/webhook/zapi-inbound', handleZapiInbound);
 // Backfill manual do funil, a partir do estado que já está no Redis. Seguro de
 // rodar várias vezes: o event_id é determinístico e o Hub descarta repetição.
 app.post('/webhook/inbound-backfill', handleBackfill);
+app.post('/webhook/inbound-diagnostico', handleDiagnostico);
 app.post('/webhook/quiz-pre', handleQuizPre);
 app.post('/webhook/disparo', handleDisparo);
 app.post('/webhook/ticto', handleTicto);
