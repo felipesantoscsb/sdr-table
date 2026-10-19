@@ -502,3 +502,27 @@ test('o agente não dá orientação de saúde nem agenda sozinho', () => {
   assert.match(p, /NUNCA dá orientação nutricional/);
   assert.match(p, /Você NÃO agenda/);
 });
+
+test('fora da janela, a conversa termina o lance que comecou', async () => {
+  // A primeira resposta sai em qualquer horario. Sem carencia, a resposta DELA
+  // caia na fila ate as 8h: o agente abria a conversa as 22h e sumia no meio.
+  const fonte = ler('src/webhook/zapiInboundHandler.js');
+  assert.match(fonte, /const CARENCIA_MIN = 30;/);
+  assert.match(fonte, /if \(!dentroDoHorario\(\) && !await emCarencia\(phone\)\)/);
+  // Estado ilegivel nao pode virar silencio: a janela decide sozinha.
+  assert.match(fonte, /\} catch \{[\s\S]{0,140}return false;/);
+  // A carencia e contada da NOSSA ultima resposta, nao da mensagem dela.
+  assert.match(fonte, /estado\?\.ultimaRespostaEm/);
+  assert.match(ler('src/inbound/handler.js'), /ultimaRespostaEm: r\.leadMessage \? new Date\(\)\.toISOString\(\)/);
+  assert.match(ler('src/inbound/handler.js'), /mensagensDoAgente: 1, turnos: 0, ultimaRespostaEm:/);
+});
+
+test('a entrada nova nao passa por gate de horario', async () => {
+  // Regra do Felipe, 20/10/2026: quem acabou de clicar recebe resposta na hora,
+  // qualquer que seja. So o seguimento respeita a janela.
+  const fonte = ler('src/webhook/zapiInboundHandler.js');
+  const gates = (fonte.match(/!dentroDoHorario\(\)/g) || []).length;
+  assert.equal(gates, 2, 'o gate vive so no ramo de conversa viva, com e sem carencia');
+  const secao2 = fonte.slice(fonte.indexOf('── 2. Entrada nova'));
+  assert.ok(!/dentroDoHorario/.test(secao2), 'entrada nova ganhou gate de horario');
+});

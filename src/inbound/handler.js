@@ -199,7 +199,7 @@ export async function iniciarInbound({ phone, origem = 'direto', ctwa = null, me
   const envio = await enviarComGuarda(phone, r.leadMessage, { origem });
   if (!envio.enviado) return { ok: false, motivo: 'barrado_pela_guarda' };
   await addMessage(phone, 'assistant', r.leadMessage).catch(() => {});
-  await setInboundState(phone, { mensagensDoAgente: 1, turnos: 0 });
+  await setInboundState(phone, { mensagensDoAgente: 1, turnos: 0, ultimaRespostaEm: new Date().toISOString() });
 
   // Card de captação é bookkeeping: não condiciona a conversa.
   garantirLeadCaptacaoNoHub({
@@ -323,6 +323,9 @@ export async function conduzirInbound({ phone, mensagem, history = [] }) {
     tier: r.tier,
     etapa: r.etapa,
     mensagensDoAgente: (estado.mensagensDoAgente || 0) + (r.leadMessage ? 1 : 0),
+    // Marca a carência de 30 min: fora da janela, conversa que acabou de
+    // receber resposta nossa continua em vez de cair na fila.
+    ultimaRespostaEm: r.leadMessage ? new Date().toISOString() : (estado.ultimaRespostaEm || null),
   });
   if (r.nome && !leadData.nome) {
     await setInboundState(phone, { nome: r.nome });

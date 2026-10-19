@@ -28,7 +28,7 @@
 import axios from 'axios';
 import {
   normalizePhone, isBlocked, isHandedOff, temConversaInbound,
-  getHistory, enqueueMessage, dequeueMessages,
+  getHistory, enqueueMessage, dequeueMessages, getInboundState,
 } from '../conversation/store.js';
 import { aggregate } from '../conversation/aggregator.js';
 import { detectarEntrada } from '../inbound/entry.js';
@@ -66,6 +66,22 @@ function registrarDecisao(tipo) {
 }
 export function statusInbound() {
   return { decisoes, ultimaDecisao, ultimaEm };
+}
+
+/** Minutos de carência depois da nossa última resposta, fora da janela. */
+const CARENCIA_MIN = 30;
+
+async function emCarencia(phone) {
+  try {
+    const estado = await getInboundState(phone);
+    const marca = estado?.ultimaRespostaEm;
+    if (!marca) return false;
+    const minutos = (Date.now() - new Date(marca).getTime()) / 60000;
+    return minutos >= 0 && minutos <= CARENCIA_MIN;
+  } catch {
+    // Estado ilegível não pode virar silêncio: a janela decide sozinha.
+    return false;
+  }
 }
 
 function dentroDoHorario() {
@@ -211,12 +227,22 @@ export async function handleZapiInbound(req, res) {
         return;
       }
 
-      if (!dentroDoHorario()) {
+      // A primeira resposta sai em qualquer horário, de propósito: quem clicou
+      // num anúncio às 22h está acordada e esperando. Mas o seguimento cai na
+      // janela, e isso criava o pior dos mundos — o agente abria a conversa e
+      // sumia no meio dela até as 8h.
+      //
+      // A carência resolve: conversa que teve resposta nossa nos últimos 30
+      // minutos termina o lance que começou. Enquanto ela responder, a gente
+      // responde; quando esfriar, cai na fila. Se ela sustentar a conversa,
+      // é exatamente a conversa que a gente quer.
+      if (!dentroDoHorario() && !await emCarencia(phone)) {
         registrarDecisao('enfileirado_fora_horario');
       console.log(`⏰ [zapi-inbound] fora do horário — enfileirando ${phone}`);
         await enqueueMessage(phone, texto);
         return;
       }
+      if (!dentroDoHorario()) registrarDecisao('carencia_fora_horario');
 
       registrarDecisao('conversa_em_andamento');
       aggregate(phone, texto, processarInbound, `inbound:${phone}`);
