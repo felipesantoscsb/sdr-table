@@ -331,6 +331,19 @@ export async function conduzirInbound({ phone, mensagem, history = [] }) {
     await setInboundState(phone, { nome: r.nome });
   }
 
+  // O card nasce como "Lead inbound" porque na abertura o nome ainda não
+  // existe. Até 20/10/2026 ele só era corrigido no handoff, então toda lead
+  // que respondia o nome e sumia ficava "Lead inbound" para sempre — e, com a
+  // conversão onde está, isso é a maioria delas. Piorou quando o agente passou
+  // a perguntar o nome na primeira mensagem: o dado chegava mais cedo e
+  // continuava não saindo daqui.
+  //
+  // Reenviar é barato e o Hub trata: `name = COALESCE($2, name)` com $2 nunca
+  // nulo, então o nome de verdade sobrescreve. `source` tem COALESCE invertido
+  // lá, de propósito, então a origem da abertura não se perde.
+  const nomeNovo = !!r.nome && !estado.nome && !leadData.nome;
+  const qualificouAgora = r.qualificacao?.completa === true && estado.qualificacao?.completa !== true;
+
   // Primeira resposta: a lead falou pela primeira vez depois da abertura. É o
   // que separa "clicou no anúncio" de "entrou em conversa".
   if (turnos === 1) {
@@ -351,6 +364,14 @@ export async function conduzirInbound({ phone, mensagem, history = [] }) {
     qualificacao: r.qualificacao, disponibilidade: r.disponibilidade,
     score: r.score, tier: r.tier,
   });
+
+  // Atualiza o card no momento em que a informação aparece, não só no handoff.
+  // Leva junto a qualificação, que sofria do mesmo atraso.
+  if (nomeNovo || qualificouAgora) {
+    garantirLeadCaptacaoNoHub({ leadData: campos, phone })
+      .then(() => console.log(`[inbound] card atualizado no Hub: ${nome || '(sem nome)'} (${phone})`))
+      .catch(err => console.warn(`[inbound] card não atualizado para ${phone}: ${err.message}`));
+  }
 
   // Red flag: acolhe em uma frase e para. Nenhuma oferta, nenhum produto.
   if (r.redflag) {

@@ -526,3 +526,22 @@ test('a entrada nova nao passa por gate de horario', async () => {
   const secao2 = fonte.slice(fonte.indexOf('── 2. Entrada nova'));
   assert.ok(!/dentroDoHorario/.test(secao2), 'entrada nova ganhou gate de horario');
 });
+
+test('o nome vai para o Hub assim que aparece, nao so no handoff', async () => {
+  // O card nasce "Lead inbound" porque na abertura o nome nao existe. Ate
+  // 20/10/2026 so o handoff corrigia, entao toda lead que respondia o nome e
+  // sumia ficava "Lead inbound" para sempre. Com a conversao onde esta, isso
+  // era a maioria. E piorou quando o agente passou a perguntar na primeira
+  // mensagem: o dado chegava mais cedo e continuava preso aqui.
+  const h = ler('src/inbound/handler.js');
+  assert.match(h, /const nomeNovo = !!r\.nome && !estado\.nome && !leadData\.nome;/);
+  assert.match(h, /const qualificouAgora = r\.qualificacao\?\.completa === true && estado\.qualificacao\?\.completa !== true;/);
+  assert.match(h, /if \(nomeNovo \|\| qualificouAgora\) \{[\s\S]{0,120}garantirLeadCaptacaoNoHub\(\{ leadData: campos, phone \}\)/);
+  // Nao pode bloquear a conversa: bookkeeping falho nao cala o agente.
+  assert.match(h, /\.catch\(err => console\.warn\(`\[inbound\] card não atualizado/);
+});
+
+test('a notificacao da Karina leva o nome quando existe', async () => {
+  const s = ler('src/zapi/sender.js');
+  assert.match(s, /`👤 \*\$\{nome \|\| limpo\}\*`/, 'sem nome, cai no telefone, nunca em rotulo generico');
+});
