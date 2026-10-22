@@ -35,6 +35,44 @@ function normalizeLead(body) {
   };
 }
 
+/**
+ * Lead que veio do quiz do /raiz-radar.
+ *
+ * O funil do Radar esta sendo testado puro: a pagina tem de vender sozinha, sem
+ * a Karina interceptando quem acabou de responder o quiz. Sem este portao o
+ * SDR abre conversa com toda lead capturada, e ai nao da para saber se a venda
+ * veio da pagina ou do atendimento.
+ *
+ * Casa qualquer origem que mencione o Radar, porque a string exata varia
+ * conforme quem posta (`radar_table_rota_a`, `raiz-radar`, `radar-table`...).
+ * A EXCECAO e a pre-consulta: ali a lead PEDIU para ser contatada, e nao
+ * responder seria quebrar entrega, nao preservar teste.
+ */
+export function ehQuizDoRadar(leadData = {}) {
+  const campos = [
+    leadData.source,
+    leadData.origin,
+    leadData.event_source_url,
+    leadData.url,
+    leadData.slug,
+    leadData.utm?.source,
+    leadData.utm?.campaign,
+  ].filter(Boolean).map(v => String(v).toLowerCase());
+
+  // Espaco tambem conta: `origin` chega como "Radar Table".
+  const mencionaRadar = campos.some(v => /radar[\s_-]?table|raiz[\s_-]?radar/.test(v));
+  const ehPreConsulta = campos.some(v => /pre[_-]?consulta/.test(v));
+  return mencionaRadar && !ehPreConsulta;
+}
+
+/**
+ * Religar o SDR no Radar: RADAR_SDR_ATIVO=true no Railway, sem deploy.
+ * Enquanto estiver desligado, a lead e registrada no Hub e nenhuma mensagem sai.
+ */
+export function sdrDoRadarLigado() {
+  return String(process.env.RADAR_SDR_ATIVO || '').toLowerCase() === 'true';
+}
+
 function isNataliaSource(leadData = {}) {
   const fields = [
     leadData.source,
@@ -182,6 +220,17 @@ export async function handleMakeLead(req, res) {
   }
 
   console.log(`📥 Novo lead recebido: ${leadData.nome} (${phone})`);
+
+  // Teste do funil puro do Radar: registra a lead e nao abre conversa.
+  if (ehQuizDoRadar(leadData) && !sdrDoRadarLigado()) {
+    console.log(`🔇 Radar silenciado — ${leadData.nome} (${phone}) source="${leadData.source}". Lead vai para o Hub, nenhuma mensagem sai.`);
+    res.status(200).json({ received: true, activated: false, phone, reason: 'radar_sdr_silenciado' });
+    // Card no Hub continua: silenciar o atendimento nao pode perder a lead.
+    garantirLeadCaptacaoNoHub({ leadData, phone }).catch(err => {
+      console.warn(`⚠️ Card de captação não criado no Hub para ${leadData.nome} (${phone}): ${err.message}`);
+    });
+    return;
+  }
 
   const activation = await validateAndActivateLead(leadData, phone);
   if (!activation.ok) {
