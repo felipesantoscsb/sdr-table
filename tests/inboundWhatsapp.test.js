@@ -36,8 +36,13 @@ test('cada frase pronta casa com a sua própria origem', () => {
   // Invariante que não pode quebrar: se uma frase deixar de casar com a chave
   // dela, a lead ainda é atendida mas entra com a origem errada — e o relatório
   // de origem passa a mentir em silêncio.
+  // 'site' e a excecao desde 25/10/2026: a frase dele perdeu a palavra de
+  // origem por decisao do Felipe, entao cai em 'direto' de proposito. Toda
+  // outra frase TEM de casar com a propria chave, senao a lead e atendida com
+  // a origem errada e o relatorio passa a mentir em silencio.
   for (const [chave, frase] of Object.entries(FRASES)) {
-    assert.equal(detectarEntrada({}, frase).origem, chave, `${chave} casou errado`);
+    const esperado = chave === 'site' ? 'direto' : chave;
+    assert.equal(detectarEntrada({}, frase).origem, esperado, `${chave} casou errado`);
   }
   assert.deepEqual(
     Object.keys(FRASES).sort(),
@@ -544,4 +549,38 @@ test('o nome vai para o Hub assim que aparece, nao so no handoff', async () => {
 test('a notificacao da Karina leva o nome quando existe', async () => {
   const s = ler('src/zapi/sender.js');
   assert.match(s, /`👤 \*\$\{nome \|\| limpo\}\*`/, 'sem nome, cai no telefone, nunca em rotulo generico');
+});
+
+// ── Frase do site sem palavra de origem (25/10/2026) ───────────────────────
+
+test('o link do site entra no agente mesmo sem dizer de onde veio', async () => {
+  const { detectarEntrada, FRASES } = await import('../src/inbound/entry.js');
+  const r = detectarEntrada({}, FRASES.site);
+  assert.equal(r.match, true, 'a frase do site parou de abrir conversa');
+  // Custo assumido da mudança: sem palavra de origem, cai em 'direto'.
+  assert.equal(r.origem, 'direto');
+});
+
+test('os links antigos do site continuam atribuindo', async () => {
+  // Frase anterior segue circulando em prints e páginas em cache.
+  const { detectarEntrada } = await import('../src/inbound/entry.js');
+  const r = detectarEntrada({}, 'Oi! Vim pelo site e quero saber mais sobre o acompanhamento da Table Clinic');
+  assert.equal(r.match, true);
+  assert.equal(r.origem, 'site');
+});
+
+test('trocar "Table Clinic" por "Table" derruba a lead do agente', async () => {
+  // O núcleo exige "table clinic" inteiro. Encurtar o nome na frase manda a
+  // pessoa para o repasse em vez do agente, sem erro nenhum aparecer.
+  const { detectarEntrada } = await import('../src/inbound/entry.js');
+  assert.equal(detectarEntrada({}, 'Oi! Quero saber mais sobre o acompanhamento da Table').match, false);
+});
+
+test('toda frase pronta casa com o próprio matcher', async () => {
+  // O comentário do módulo avisa: frase e matcher têm de mudar juntos, senão a
+  // lead cai no repasse. Isto trava as seis de uma vez.
+  const { detectarEntrada, FRASES } = await import('../src/inbound/entry.js');
+  for (const [nome, frase] of Object.entries(FRASES)) {
+    assert.equal(detectarEntrada({}, frase).match, true, `FRASES.${nome} não casa com o núcleo`);
+  }
 });

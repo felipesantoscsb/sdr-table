@@ -94,7 +94,11 @@ export const FRASES = {
   anuncio: 'Oi! Vim pelo anúncio e quero saber mais sobre o acompanhamento da Table Clinic',
   story:   'Oi! Vim pelo story e quero saber mais sobre o acompanhamento da Table Clinic',
   bio:     'Oi! Vim pela bio e quero saber mais sobre o acompanhamento da Table Clinic',
-  site:    'Oi! Vim pelo site e quero saber mais sobre o acompanhamento da Table Clinic',
+  // Sem palavra de origem por decisao do Felipe (25/10/2026): o link do site
+  // fala so do interesse. Custo assumido: a conversa entra como 'direto'.
+  // As marcas de 'site' em ORIGENS continuam la para os links antigos que ja
+  // circulam com a frase anterior.
+  site:    'Oi! Quero saber mais sobre o acompanhamento da Table Clinic',
   blog:    'Oi! Vim pelo blog e quero saber mais sobre o acompanhamento da Table Clinic',
   tiktok:  'Oi! Vim pelo TikTok e quero saber mais sobre o acompanhamento da Table Clinic',
 };
