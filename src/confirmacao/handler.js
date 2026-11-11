@@ -16,69 +16,12 @@ import { setConfirmacaoMode, normalizePhone, addMessage, isBlocked, setHandedOff
 import { sendMessage, notifyConfirmacao } from '../zapi/sender.js';
 import { moverCardPipeline } from '../hub/client.js';
 
-export async function handleConfirmacaoPreConsulta(req, res) {
-  const expected = process.env.HUB_WEBHOOK_SECRET || process.env.INTERNAL_WEBHOOK_SECRET;
-  const received = req.headers['x-webhook-secret'] || req.body?.secret;
-  if (!expected || received !== expected) {
-    return res.status(401).json({ error: 'Não autorizado' });
-  }
-
-  const phone = normalizePhone(req.body?.phone || req.body?.whatsapp || '');
-  if (!phone) return res.status(400).json({ error: 'phone obrigatório' });
-
-  const cardId = req.body?.card_id || null;
-  if (!cardId) return res.status(400).json({ error: 'card_id obrigatório' });
-
-  // Bloqueio local tem precedencia sobre a decisao do Hub: quem recusou
-  // contato pode ter recusado por aqui, e nesse caso o Hub nem sabe.
-  if (await isBlocked(phone)) {
-    console.log(`⛔ Confirmação recusada: ${phone} está bloqueado no sdr`);
-    return res.status(409).json({ error: 'bloqueado', sent: false });
-  }
-
-  const nome  = req.body?.nome || null;
-  const nutri = req.body?.nutri || null;
-  const quando = req.body?.quando || null; // já formatado em BRT pelo Hub
-  const jornadaUrl = req.body?.jornada_url || null;
-
-  // Responde antes de enviar: o Hub nao pode ficar preso esperando a LLM, e o
-  // lote da hora inteira nao pode travar por causa de uma lead.
-  res.json({ ok: true, queued: true, phone });
-
-  try {
-    const ok = await setConfirmacaoMode(phone, {
-      nome,
-      whatsapp: phone,
-      cardId,
-      nutri,
-      origem: 'confirmacao_preconsulta',
-      confirmacao: { card_id: cardId, quando, nutri, jornada_url: jornadaUrl },
-    });
-    if (!ok) return; // bloqueado entre a checagem e agora
-
-    const mensagem = await generateConfirmacaoMessage({ nome, quando, nutri, jornadaUrl });
-    if (!mensagem) {
-      console.error(`[confirmacao] mensagem vazia para ${phone} — nada enviado`);
-      return;
-    }
-    await sendMessage(phone, mensagem);
-    await addMessage(phone, 'assistant', mensagem).catch(() => {});
-    console.log(`✅ Confirmação enviada para ${nome || phone} (card ${cardId})`);
-  } catch (e) {
-    console.error(`[confirmacao] erro para ${phone}:`, e.message);
-  }
-}
-
-
-// Estagio do pipeline por classificacao. 'Reagendar' (nao 'Reagendada'):
-// a remarcacao ainda nao aconteceu, e e a Karina quem faz.
-const ESTAGIO = { confirmou: 'Confirmada', nao_pode: 'Reagendar' };
-
-/**
- * Conduz a resposta da lead na confirmacao. Caminho curto e proprio, chamado
- * pelo zapiHandler ANTES da maquina do SDR: aqui nao existe qualificacao,
- * branch Evelyn nem handoff de agendamento — e so "voce vem amanha?".
- */
+// A porta de entrada (/webhook/confirmacao-preconsulta) saiu em 11/11/2026: no
+// Hub, a confirmação de pré-consulta estava desligada desde 14/10 por duplicar
+// mensagem, e o job foi removido. Nada novo entra.
+//
+// A condução da conversa fica, pelo mesmo motivo da oferta: resposta atrasada
+// precisa achar o agente.
 export async function conduzirConfirmacao({ phone, leadData = {}, history = [], mensagem }) {
   const ctx = leadData.confirmacao || {};
   const r = await generateConfirmacaoReply({

@@ -85,8 +85,9 @@ test('a confirmação manda a jornada junto — é ela que faz a lead aparecer',
   const fn = ai.slice(ai.indexOf('export async function generateConfirmacaoMessage'), ai.indexOf('export async function generateConfirmacaoReply'));
   assert.match(fn, /jornadaUrl/);
   assert.match(fn, /Mande TAMBEM o link da jornada/);
-  const h = ler('src/confirmacao/handler.js');
-  assert.match(h, /jornada_url: jornadaUrl/);
+  // Quem montava esse payload era handleConfirmacaoPreConsulta, que saiu em
+  // 11/11/2026 com o job do Hub. O prompt ficou: a regra de levar a jornada
+  // junto vale para quem reconstruir a confirmação pelo canal oficial.
 });
 
 test('reação não acorda o agente em modo nenhum', () => {
