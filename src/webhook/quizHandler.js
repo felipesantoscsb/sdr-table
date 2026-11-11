@@ -2,12 +2,13 @@
 //
 // Recebe leads EXCLUSIVAMENTE de recuperação pós-quiz (aquisicao-table).
 // NÃO ativa o agente SDR — apenas salva dados, dispara dossiê 15min
-// e agenda follow-up 6h via job em followup.js.
+// A cadência pós-quiz sai por template oficial (quizCadence.js). O follow-up
+// 6h por Z-API foi removido em 11/11/2026 — estava desligado e saía pelo
+// número comercial.
 
 import { safeSet } from '../redis.js';
 import { normalizePhone } from '../conversation/store.js';
 import { scheduleDisparo } from '../disparos/handler.js';
-import { savePendingFollowup, FOLLOWUP_6H_ENABLED } from '../followup.js';
 import { scheduleQuizCadence } from '../quizCadence.js';
 
 function normalizeLead(body) {
@@ -63,11 +64,6 @@ export async function handleQuizLead(req, res) {
   Source:     ${leadData.source}`);
 
   const entry = { ...leadData, phone, timestamp: Date.now() };
-  if (FOLLOWUP_6H_ENABLED) {
-    // Salva com namespace separado "quiz:" (NÃO interfere em "lead:")
-    await safeSet(`quiz:${phone}`, JSON.stringify(entry), 'EX', QUIZ_TTL_SEC);
-    await savePendingFollowup(phone, entry);
-  }
   await scheduleQuizCadence(phone, entry);
 
   // Responde imediatamente — processamento é async

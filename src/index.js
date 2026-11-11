@@ -21,19 +21,7 @@ import { handleDisparo, fireDossie, DOSSIE_WHATSAPP_ENABLED } from './disparos/h
 import { gerarDossie } from './disparos/gerador.js';
 import { handleTrack } from './webhook/trackHandler.js';
 import { handleTicto } from './webhook/tictoHandler.js';
-import { handleCheckoutRecovery } from './webhook/checkoutRecoveryHandler.js';
-import { handleCampanhaRegistro } from './campanha/handler.js';
-import { handleReativacaoRegistro } from './reativacao/handler.js';
-import { handleConfirmacaoPreConsulta } from './confirmacao/handler.js';
-import { handleOferta } from './oferta/handler.js';
 import { getPhonesWithQueue, getConversationMode } from './conversation/store.js';
-import {
-  startFollowUpJob,
-  fireFollowUp,
-  dentroDoHorario,
-  clearPendingFollowUps,
-  FOLLOWUP_6H_ENABLED,
-} from './followup.js';
 import {
   startQuizCadenceJob,
   handleQuizCadenceCancel,
@@ -72,11 +60,14 @@ app.post('/webhook/inbound-diagnostico', handleDiagnostico);
 app.post('/webhook/quiz-pre', handleQuizPre);
 app.post('/webhook/disparo', handleDisparo);
 app.post('/webhook/ticto', handleTicto);
-app.post('/webhook/checkout-recovery', handleCheckoutRecovery);
-app.post('/webhook/campanha-registro', handleCampanhaRegistro);
-app.post('/webhook/reativacao', handleReativacaoRegistro);
-app.post('/webhook/confirmacao-preconsulta', handleConfirmacaoPreConsulta);
-app.post('/webhook/oferta', handleOferta);
+// Quatro webhooks saíram em 11/11/2026 com os workers que os chamavam no Hub:
+// /webhook/campanha-registro, /webhook/reativacao, /webhook/confirmacao-preconsulta
+// e /webhook/oferta. Eram as PORTAS DE ENTRADA desses fluxos — nada novo entra
+// mais. O que conduz a CONVERSA (conduzirOferta, conduzirConfirmacao, modo
+// 'reativacao' no zapiHandler) continua de pé: quem já estava no meio de uma
+// dessas conversas segue atendido em vez de cair num modo sem tratamento.
+// /webhook/checkout-recovery também saiu: RECOVERY_TOKEN nunca foi configurado
+// neste serviço, então toda chamada já morria em 401.
 app.post('/webhook/quiz-cadence/cancel', handleQuizCadenceCancel);
 app.post('/webhook/evelyn-page-event',async(req,res)=>{const {slug,event_type}=req.body||{};const allowed=['evelyn_journey_opened','evelyn_journey_radar_viewed','evelyn_journey_90days_viewed','evelyn_journey_evelyn_viewed','evelyn_journey_investment_viewed','evelyn_journey_checkout_clicked'];if(!/^evelyn-[0-9a-f-]{36}$/.test(String(slug))||!allowed.includes(event_type))return res.status(400).json({ok:false});const meta=await getEvelynJourneyMeta(slug);if(!meta)return res.status(404).json({ok:false});res.json({ok:true});registrarEventoEvelyn({eventId:`${slug}:${event_type}`,eventType:event_type,phone:meta.phone,leadData:meta.leadData,payload:{journey_url:`${config.evelyn.journeyBaseUrl.replace(/\/$/,'')}/evelyn/${slug}`}}).catch(()=>{});});
 app.get('/evelyn/exemplo',(req,res)=>res.redirect('/evelyn/exemplo/emocional'));
@@ -179,7 +170,6 @@ const DOSSIE_STALE_MS = Number(process.env.DOSSIE_STALE_MS || 14 * 60 * 60 * 100
 async function recoverPendingTimers() {
   const now = Date.now();
   let dossiesRecovered = 0;
-  let followupsRecovered = 0;
 
   // ── Dossiês pendentes ──────────────────────────────────────────────────────
   const dossieKeys = await safeKeys('pending_dossie:*');
@@ -218,43 +208,9 @@ async function recoverPendingTimers() {
     dossiesRecovered++;
   }
 
-  // ── Follow-ups pendentes ───────────────────────────────────────────────────
-  if (FOLLOWUP_6H_ENABLED) {
-    const followupKeys = await safeKeys('pending_followup:*');
-    for (const key of followupKeys) {
-      const raw = await safeGet(key);
-      if (!raw) continue;
-      let pending;
-      try { pending = JSON.parse(raw); } catch { continue; }
-
-      const { phone, leadData, fire_at } = pending;
-      if (!phone || !leadData) continue;
-
-      // Se já enviou o follow-up, ignora
-      const jaEnviou = await redisGet(`followup:${phone}`);
-      if (jaEnviou) continue;
-
-      // Se já comprou, ignora
-      const comprou = await redisGet(`compra:${phone}`);
-      if (comprou) continue;
-
-      const remaining = fire_at - now;
-
-      // Dispara só dentro do horário comercial. Se fora (ou atrasado de
-      // madrugada), o cron checkFollowUps reprocessa quiz:* no próximo
-      // horário válido — evita follow-up de madrugada.
-      const fire = () => { if (dentroDoHorario()) fireFollowUp(leadData, phone); };
-
-      if (remaining <= 0) {
-        console.log(`⚡ [recovery] Follow-up para ${leadData.nome} (${phone}) — atrasado; cron reprocessa no horário válido`);
-        setTimeout(fire, 0);
-      } else {
-        console.log(`⏳ [recovery] Follow-up para ${leadData.nome} (${phone}) — reagendado em ${Math.round(remaining / 60000)}min`);
-        setTimeout(fire, remaining);
-      }
-      followupsRecovered++;
-    }
-  }
+  // O follow-up 6h do quiz saiu em 11/11/2026: estava desligado por
+  // FOLLOWUP_6H_ENABLED desde sempre e mandava pela Z-API do número comercial.
+  // A cadência pós-quiz que sobrou é a de baixo, por template oficial.
 
   // ── Cadência oficial pós-quiz pendente ─────────────────────────────────────
   if (QUIZ_CADENCE_ENABLED) {
@@ -263,8 +219,8 @@ async function recoverPendingTimers() {
     await clearPendingQuizCadence();
   }
 
-  if (dossiesRecovered + followupsRecovered > 0) {
-    console.log(`✅ [recovery] ${dossiesRecovered} dossiê(s) e ${followupsRecovered} follow-up(s) recuperados`);
+  if (dossiesRecovered > 0) {
+    console.log(`✅ [recovery] ${dossiesRecovered} dossiê(s) recuperado(s)`);
   } else {
     console.log('✅ [recovery] Nenhum timer pendente encontrado');
   }
@@ -290,11 +246,6 @@ Endpoints:
   GET  /fotos/:file      → Fotos da equipe
   `);
 
-  if (FOLLOWUP_6H_ENABLED) {
-    startFollowUpJob();
-  } else {
-    await clearPendingFollowUps();
-  }
   startQuizCadenceJob();
   recoverPendingTimers().catch(err => console.error('❌ Erro na recovery de timers:', err.message));
   recoverPendingEvelynJourneys().then(total=>console.log(`✅ [recovery] ${total} Jornada(s) Evelyn pendente(s)`)).catch(err=>console.error('❌ Erro na recovery Evelyn:',err.message));
