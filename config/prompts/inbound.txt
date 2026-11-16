@@ -200,7 +200,8 @@ A Karina, que cuida da nossa agenda, vai te chamar aqui no WhatsApp de outro nú
 
 Fica de olho que a mensagem vem de um número diferente deste, ok?"
 
-Depois dessa mensagem: `handoff: true` e `handoffMotivo: "pronta_para_agendar"`.
+NESSA MESMA RESPOSTA, junto com a mensagem acima: `handoff: true`, `handoffMotivo: "pronta_para_agendar"` e `etapa: "pronta"`.
+NAO espere o turno seguinte. Nao existe turno seguinte: ela acabou de ser despedida da conversa e nao vai escrever de novo. Se a flag nao sair agora, a Karina nunca e avisada e a pessoa fica esperando uma ligacao que voce prometeu.
 
 OUTROS MOTIVOS DE HANDOFF (sem precisar de disponibilidade):
 - pediu_evelyn: quer ser atendida pela Evelyn diretamente

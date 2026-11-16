@@ -116,6 +116,36 @@ test('só turno, sem dias, ainda não passa', () => {
   assert.equal(r.handoff, false);
 });
 
+test('etapa "pronta" dispara handoff mesmo sem o booleano do modelo', () => {
+  // A regressao que custou 251 conversas, de 16/10 a 16/11/2026. O prompt dizia
+  // "Depois dessa mensagem: handoff: true", e "depois" o modelo lia como turno
+  // seguinte — que nunca chega, porque a lead acabou de ser despedida da
+  // conversa. Resultado: ela recebia "a Karina vai te chamar", `etapa` vinha
+  // 'pronta' com turnos e dias estruturados, e `handoff` vinha ausente. O if do
+  // handoff controla aviso + card + carimbo de uma vez, entao os tres sumiam.
+  const r = resp({
+    leadMessage: 'Perfeito. Então manhã, qualquer dia, anotado. A Karina vai te chamar.',
+    etapa: 'pronta',
+    qualificacao: { dor_texto: 'x'.repeat(30), padrao: 'ciclo', prontidao: 'alta' },
+    disponibilidade: { turnos: ['manha'], dias: ['qualquer'], texto: 'de manhã, qualquer dia' },
+    // handoff NAO vem. E o caso real.
+  });
+  assert.equal(r.handoff, true, 'etapa pronta nao disparou o handoff');
+  assert.equal(r.handoffMotivo, 'pronta_para_agendar');
+});
+
+test('etapa "pronta" sem disponibilidade continua RECUSADA', () => {
+  // O caminho novo nao afrouxa o gate: sem saber quando, a Karina nao liga.
+  const r = resp({
+    leadMessage: 'Que bom!',
+    etapa: 'pronta',
+    qualificacao: { dor_texto: 'x'.repeat(30) },
+    disponibilidade: { turnos: [], dias: [], texto: '' },
+  });
+  assert.equal(r.handoff, false, 'passou sem disponibilidade');
+  assert.equal(r.handoffMotivo, '');
+});
+
 test('com turnos E dias, o handoff passa e é rotulado como agendamento', () => {
   const r = resp({
     leadMessage: 'Nossa secretária vai te chamar de outro número', qualificacao: QUALIFICADA,

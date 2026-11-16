@@ -1039,7 +1039,24 @@ export function normalizarRespostaInbound(bruto, qualificacaoAnterior, disponibi
   // Gate de handoff. Agendamento exige disponibilidade completa; os outros
   // motivos (pediu a Evelyn, pediu humano, fora do roteiro, já é paciente)
   // passam direto porque não têm nada a ver com agenda.
-  let handoff = p.handoff === true;
+  // A etapa e lida ANTES do gate porque `pronta` tambem dispara handoff.
+  const etapa = INBOUND_ETAPAS.includes(p.etapa) ? p.etapa : 'qualificando';
+
+  // `etapa: 'pronta'` vale como handoff, mesmo sem o booleano do modelo.
+  //
+  // O prompt dizia "Depois dessa mensagem: handoff: true", e "depois" o modelo
+  // le como turno seguinte — que nunca chega. A lead acabou de receber a
+  // despedida ("a Karina vai te chamar de outro numero") e nao tem mais o que
+  // dizer, entao o agente nao roda outra vez e a flag nunca sai. De 16/10 a
+  // 16/11/2026 isso deu 251 conversas sem UM handoff: gente qualificada, com
+  // turnos e dias ja estruturados, recebendo a promessa da ligacao enquanto a
+  // Karina nunca foi avisada.
+  //
+  // Mesma razao do `qualificacao.completa`: o disparo e de CODIGO, nao opiniao
+  // do modelo. A etapa ele marca certo na MESMA resposta; o booleano, nao.
+  // O gate de disponibilidade abaixo roda igual para os dois caminhos, entao
+  // isto nao afrouxa nada — so para de jogar fora o que ja estava decidido.
+  let handoff = p.handoff === true || etapa === 'pronta';
   let handoffMotivo = motivoBruto;
   if (handoff && !motivoDireto) {
     if (temDisponibilidade) {
@@ -1062,7 +1079,7 @@ export function normalizarRespostaInbound(bruto, qualificacaoAnterior, disponibi
     disponibilidade,
     score,
     tier,
-    etapa: INBOUND_ETAPAS.includes(p.etapa) ? p.etapa : 'qualificando',
+    etapa,
     handoff,
     handoffMotivo,
     redflag,
